@@ -1,5 +1,6 @@
-import ThemeRegistry from "@/components/ThemeRegistry";
-import NavTabs from "@/components/NavTabs"; // 👈 import the NavTabs
+// src/app/layout.js
+import ClientLayout from "@/components/ClientLayout";
+import Providers from "@/app/providers"; 
 
 export const metadata = {
   title: "Bookstore",
@@ -9,11 +10,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
-        <ThemeRegistry>
-          <NavTabs />   {/* 👈 Tabs at the top */}
-          {children}    {/* 👈 Page content below */}
-        </ThemeRegistry>
+      <body suppressHydrationWarning={true}>
+        <Providers>
+          <ClientLayout>{children}</ClientLayout>
+        </Providers>
       </body>
     </html>
   );

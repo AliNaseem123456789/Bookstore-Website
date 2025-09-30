@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Container,
@@ -14,19 +15,40 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
 } from "@mui/material";
 
-export default function BookDetail({ params }) {
-  const { id } = React.use(params);
+function formatDate(date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+export default function BookDetailPage({ params }) {
+  const unwrappedParams = React.use(params);
+  const { id } = unwrappedParams;
+
+  const router = useRouter();
 
   const [book, setBook] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
 
-  // Dialog states
+  const [mounted, setMounted] = React.useState(false);
+  const [purchaseDate, setPurchaseDate] = React.useState("");
+
   const [editOpen, setEditOpen] = React.useState(false);
   const [purchaseOpen, setPurchaseOpen] = React.useState(false);
 
-  // Form for editing
   const [form, setForm] = React.useState({
     name: "",
     publisher: "",
@@ -35,7 +57,6 @@ export default function BookDetail({ params }) {
     quantity: "",
   });
 
-  // Form for purchase
   const [purchaseForm, setPurchaseForm] = React.useState({
     buyer_name: "",
     amount_paid: "",
@@ -43,11 +64,13 @@ export default function BookDetail({ params }) {
 
   React.useEffect(() => {
     async function fetchBook() {
+      setLoading(true);
       const { data, error } = await supabase
         .from("books")
         .select("*")
         .eq("id", id)
         .single();
+
       if (error) setError(error.message);
       else {
         setBook(data);
@@ -59,18 +82,38 @@ export default function BookDetail({ params }) {
           quantity: data.quantity || "",
         });
       }
+      setLoading(false);
     }
+
     if (id) fetchBook();
+
+    setMounted(true);
+    setPurchaseDate(formatDate(new Date()));
   }, [id]);
 
-  if (error || !book) {
-    return <p>Book not found</p>;
+  if (loading) {
+    return (
+      <Container sx={{ mt: 10, textAlign: "center" }}>
+        <CircularProgress />
+        <Typography sx={{ mt: 2 }}>Loading book details...</Typography>
+      </Container>
+    );
   }
 
-  // Handle purchase confirm
+  if (error || !book) {
+    return (
+      <Container sx={{ mt: 10, textAlign: "center" }}>
+        <Typography color="error">Book not found</Typography>
+      </Container>
+    );
+  }
+
+  // 🔥 background color logic
+  const stockColor =
+    book.quantity < 3 ? "red" : book.quantity < 10 ? "orange" : "inherit";
+
   async function handlePurchaseConfirm() {
     try {
-      // Step 1: Insert into purchases table
       const { error: purchaseError } = await supabase.from("purchases").insert([
         {
           book_id: book.id,
@@ -82,7 +125,6 @@ export default function BookDetail({ params }) {
 
       if (purchaseError) throw purchaseError;
 
-      // Step 2: Reduce book quantity by 1
       const newQuantity = book.quantity - 1;
       const { error: updateError } = await supabase
         .from("books")
@@ -91,10 +133,7 @@ export default function BookDetail({ params }) {
 
       if (updateError) throw updateError;
 
-      // Update local state
       setBook({ ...book, quantity: newQuantity });
-
-      // Reset purchase form and close
       setPurchaseForm({ buyer_name: "", amount_paid: "" });
       setPurchaseOpen(false);
 
@@ -104,26 +143,16 @@ export default function BookDetail({ params }) {
     }
   }
 
-  // Handle remove
   async function handleRemove() {
+    if (!confirm("Are you sure you want to delete this book?")) return;
     const { error } = await supabase.from("books").delete().eq("id", book.id);
     if (error) alert("Error while removing book: " + error.message);
-    else alert(`Book removed: ${book.name}`);
+    else {
+      alert(`Book removed: ${book.name}`);
+      router.push("/");
+    }
   }
 
-  // Open edit dialog
-  function handleOpenEditDialog() {
-    setForm({
-      name: book.name || "",
-      publisher: book.publisher || "",
-      class_grade: book.class_grade || "",
-      price: book.price || "",
-      quantity: book.quantity || "",
-    });
-    setEditOpen(true);
-  }
-
-  // Save changes
   async function handleSave() {
     const { error } = await supabase
       .from("books")
@@ -152,10 +181,28 @@ export default function BookDetail({ params }) {
           <Typography variant="h5" gutterBottom>
             {book.name}
           </Typography>
-          <Typography>Publisher: {book.publisher}</Typography>
-          <Typography>Class/Grade: {book.class_grade || "—"}</Typography>
-          <Typography>Price: {book.price ? `₹${book.price}` : "—"}</Typography>
-          <Typography>Stock: {book.quantity}</Typography>
+
+          {/* ✅ Table for details */}
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell>Publisher</TableCell>
+                <TableCell>{book.publisher}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Class/Grade</TableCell>
+                <TableCell>{book.class_grade || "—"}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Price</TableCell>
+                <TableCell>{book.price ? `pkr ${book.price}` : "—"}</TableCell>
+              </TableRow>
+              <TableRow sx={{ backgroundColor: stockColor }}>
+                <TableCell>Stock</TableCell>
+                <TableCell>{book.quantity}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
 
           <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
             <Button
@@ -169,7 +216,11 @@ export default function BookDetail({ params }) {
             <Button variant="outlined" color="error" onClick={handleRemove}>
               Remove Book
             </Button>
-            <Button variant="outlined" color="secondary" onClick={handleOpenEditDialog}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => setEditOpen(true)}
+            >
               Change Details
             </Button>
           </Stack>
@@ -184,7 +235,9 @@ export default function BookDetail({ params }) {
         maxWidth="sm"
       >
         <DialogTitle>Make Purchase</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+        <DialogContent
+          sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}
+        >
           <TextField
             label="Buyer Name"
             value={purchaseForm.buyer_name}
@@ -202,22 +255,35 @@ export default function BookDetail({ params }) {
             }
             fullWidth
           />
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            Purchase Date: {new Date().toLocaleString()}
-          </Typography>
+          {mounted && purchaseDate && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Purchase Date: {purchaseDate}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPurchaseOpen(false)}>Cancel</Button>
-          <Button onClick={handlePurchaseConfirm} variant="contained" color="primary">
+          <Button
+            onClick={handlePurchaseConfirm}
+            variant="contained"
+            color="primary"
+          >
             Confirm Purchase
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>Edit Book Details</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+        <DialogContent
+          sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}
+        >
           <TextField
             label="Book Name"
             value={form.name}

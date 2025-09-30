@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { Card, CardContent, Typography, Button } from "@mui/material";
-
 export default function BookCard({ book }) {
   return (
     <Link href={`/book/${book.id}`} style={{ textDecoration: "none" }}>
