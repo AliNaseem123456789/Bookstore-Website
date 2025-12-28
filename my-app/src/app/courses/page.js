@@ -1,23 +1,8 @@
 "use client";
-
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  Container,
-  Typography,
-  Card,
-  CardContent,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Grid,
-  List,
-  ListItem,
-  ListItemText,
-  Checkbox,
+  Container,Typography,Card,CardContent,Button,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Grid,List,ListItem,ListItemText,Checkbox,
 } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -29,7 +14,7 @@ export default function CoursesPage() {
   const [seller, setSeller] = React.useState(null); // 👈 logged in user
   const queryClient = useQueryClient();
 
-  // ✅ Fetch logged-in seller from /api/me
+  // Fetch logged-in seller from /api/me
   React.useEffect(() => {
     async function fetchSeller() {
       try {

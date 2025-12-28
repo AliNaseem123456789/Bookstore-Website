@@ -1,5 +1,5 @@
 "use client";
-
+import React, { useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Container,
@@ -27,17 +27,73 @@ async function fetchBooks() {
   return data;
 }
 
+// ✅ Optimized Table Row Component with React.memo
+const BookTableRow = React.memo(function BookTableRow({ book }) {
+  // ✅ useMemo for row color calculation
+  const rowColor = useMemo(() => {
+    if (book.quantity < 3) return "#ffcccc";
+    if (book.quantity < 10) return "#ffe0b3";
+    return "";
+  }, [book.quantity]);
+
+  return (
+    <TableRow
+      hover
+      sx={{
+        cursor: "pointer",
+        backgroundColor: rowColor,
+        "&:hover": { backgroundColor: rowColor || "#f9f9f9" },
+      }}
+    >
+      <TableCell>{book.name}</TableCell>
+      <TableCell>{book.publisher}</TableCell>
+      <TableCell>{book.class_grade || "—"}</TableCell>
+      <TableCell>
+        {book.price ? `PKR ${book.price}` : "—"}
+      </TableCell>
+      <TableCell>{book.quantity}</TableCell>
+      <TableCell align="center">
+        <Link
+          href={`/book/${book.id}`}
+          style={{ textDecoration: "none" }}
+        >
+          <Button variant="outlined" size="small">
+            View
+          </Button>
+        </Link>
+      </TableCell>
+    </TableRow>
+  );
+});
+
+// ✅ Add custom comparison function for better performance
+const areEqual = (prevProps, nextProps) => {
+  return (
+    prevProps.book.id === nextProps.book.id &&
+    prevProps.book.name === nextProps.book.name &&
+    prevProps.book.publisher === nextProps.book.publisher &&
+    prevProps.book.class_grade === nextProps.book.class_grade &&
+    prevProps.book.price === nextProps.book.price &&
+    prevProps.book.quantity === nextProps.book.quantity
+  );
+};
+
+const MemoizedBookTableRow = React.memo(BookTableRow, areEqual);
+
 export default function Home() {
   const {
-    data: books,
+    data: books = [], // ✅ Default to empty array
     error,
     isLoading,
   } = useQuery({
     queryKey: ["books"],
     queryFn: fetchBooks,
-    staleTime: 1000 * 60, // cache for 1 minute
-    refetchOnWindowFocus: false, // don't refetch every time window refocuses
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
   });
+
+  // ✅ useMemo for empty state check
+  const isEmpty = useMemo(() => books.length === 0, [books]);
 
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error loading books: {error.message}</p>;
@@ -77,48 +133,16 @@ export default function Home() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {books.length === 0 ? (
+            {isEmpty ? (
               <TableRow>
                 <TableCell colSpan={6} align="center">
                   No books available.
                 </TableCell>
               </TableRow>
             ) : (
-              books.map((book) => {
-                let rowColor = "";
-                if (book.quantity < 3) rowColor = "#ffcccc"; // light red
-                else if (book.quantity < 10) rowColor = "#ffe0b3"; // light orange
-
-                return (
-                  <TableRow
-                    key={book.id}
-                    hover
-                    sx={{
-                      cursor: "pointer",
-                      backgroundColor: rowColor,
-                      "&:hover": { backgroundColor: rowColor || "#f9f9f9" },
-                    }}
-                  >
-                    <TableCell>{book.name}</TableCell>
-                    <TableCell>{book.publisher}</TableCell>
-                    <TableCell>{book.class_grade || "—"}</TableCell>
-                    <TableCell>
-                      {book.price ? `PKR ${book.price}` : "—"}
-                    </TableCell>
-                    <TableCell>{book.quantity}</TableCell>
-                    <TableCell align="center">
-                      <Link
-                        href={`/book/${book.id}`}
-                        style={{ textDecoration: "none" }}
-                      >
-                        <Button variant="outlined" size="small">
-                          View
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+              books.map((book) => (
+                <MemoizedBookTableRow key={book.id} book={book} />
+              ))
             )}
           </TableBody>
         </Table>

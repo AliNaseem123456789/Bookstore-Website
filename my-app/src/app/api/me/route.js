@@ -1,8 +1,7 @@
-// app/api/me/route.js
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 
-export const runtime = "nodejs"; // 👈 force Node runtime
+export const runtime = "nodejs";
 
 export async function GET(req) {
   const token = req.cookies.get("token")?.value;
@@ -13,7 +12,16 @@ export async function GET(req) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "SECRET_KEY");
-    return NextResponse.json({ user: decoded });
+    
+    // ✅ UPDATED: Return full user object with role
+    return NextResponse.json({ 
+      user: {
+        id: decoded.id,
+        email: decoded.email,
+        name: decoded.name,
+        role: decoded.role  // 👈 Include role
+      }
+    });
   } catch {
     return NextResponse.json({ user: null }, { status: 401 });
   }

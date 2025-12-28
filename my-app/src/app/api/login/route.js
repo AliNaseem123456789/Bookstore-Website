@@ -21,21 +21,26 @@ export async function POST(req) {
     return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
-  // sign token with role + name too
+  // ✅ UPDATED: Include role in JWT token
   const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name },
+    { 
+      id: user.id, 
+      email: user.email, 
+      role: user.role,  // 👈 Add role here
+      name: user.name   
+    },
     process.env.JWT_SECRET || "SECRET_KEY",
     { expiresIn: "1h" }
   );
 
-  // set cookie
+  // Set cookie
   const res = NextResponse.json({
     message: "Login successful",
     user: { 
       id: user.id, 
       email: user.email, 
-      role: user.role,
-      name: user.name   // ✅ include name here
+      role: user.role,  // 👈 Also return role in response
+      name: user.name   
     },
   });
 

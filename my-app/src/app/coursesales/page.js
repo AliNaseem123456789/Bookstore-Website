@@ -14,6 +14,7 @@ import {
   IconButton,
   Collapse,
   Box,
+  Skeleton,
 } from "@mui/material";
 import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 import { format } from "date-fns";
@@ -39,6 +40,8 @@ async function fetchSales({ pageParam = 0 }) {
 }
 
 export default function CourseSalesPage() {
+  const [openRows, setOpenRows] = React.useState({});
+  
   const {
     data,
     error,
@@ -51,37 +54,55 @@ export default function CourseSalesPage() {
     queryFn: fetchSales,
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextPage : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const sales = data?.pages.flatMap((page) => page.data) ?? [];
+  const sales = React.useMemo(() => 
+    data?.pages.flatMap((page) => page.data) ?? [], 
+    [data]
+  );
+
+  const toggleRow = React.useCallback((id) => {
+    setOpenRows((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  const formatDate = React.useCallback((dateString) => {
+    return format(new Date(dateString), "yyyy-MM-dd HH:mm:ss");
+  }, []);
 
   const observer = React.useRef();
   const lastRowRef = React.useCallback(
     (node) => {
       if (isFetchingNextPage) return;
       if (observer.current) observer.current.disconnect();
+      
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasNextPage) {
           fetchNextPage();
         }
       });
+      
       if (node) observer.current.observe(node);
     },
     [isFetchingNextPage, fetchNextPage, hasNextPage]
   );
 
-  const [openRows, setOpenRows] = React.useState({});
-  const toggleRow = (id) => {
-    setOpenRows((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  React.useEffect(() => {
+    return () => {
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+    };
+  }, []);
 
-  if (isLoading) return <p>Loading sales...</p>;
   if (error) return <p>Error: {error.message}</p>;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 6 }}>
       <Typography variant="h4" gutterBottom>
-        Course Sales
+        Course Sales {sales.length > 0 && `(${sales.length}+)`}
       </Typography>
 
       <Paper sx={{ mt: 3 }}>
@@ -99,7 +120,20 @@ export default function CourseSalesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {sales.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <TableRow key={`skeleton-${idx}`}>
+                  <TableCell><Skeleton variant="circular" width={40} height={40} /></TableCell>
+                  <TableCell><Skeleton variant="text" /></TableCell>
+                  <TableCell><Skeleton variant="text" /></TableCell>
+                  <TableCell><Skeleton variant="text" /></TableCell>
+                  <TableCell><Skeleton variant="text" /></TableCell>
+                  <TableCell><Skeleton variant="text" /></TableCell>
+                  <TableCell><Skeleton variant="text" /></TableCell>
+                  <TableCell><Skeleton variant="text" /></TableCell>
+                </TableRow>
+              ))
+            ) : sales.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center">
                   No course sales yet.
@@ -124,9 +158,7 @@ export default function CourseSalesPage() {
                       <TableCell align="center">{sale.no_of_books}</TableCell>
                       <TableCell align="right">{sale.total_cost}</TableCell>
                       <TableCell align="right">{sale.cost_paid}</TableCell>
-                      <TableCell>
-                        {format(new Date(sale.date), "yyyy-MM-dd HH:mm:ss")}
-                      </TableCell>
+                      <TableCell>{formatDate(sale.date)}</TableCell>
                     </TableRow>
 
                     <TableRow>
@@ -157,6 +189,9 @@ export default function CourseSalesPage() {
               <TableRow>
                 <TableCell colSpan={8} align="center">
                   <CircularProgress size={24} />
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Loading more records...
+                  </Typography>
                 </TableCell>
               </TableRow>
             )}
