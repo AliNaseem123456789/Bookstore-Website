@@ -1,3 +1,4 @@
+//sell history
 "use client";
 
 import * as React from "react";
@@ -73,7 +74,7 @@ export default function PurchasesPage() {
   return (
     <Container maxWidth="md" sx={{ mt: 6 }}>
       <Typography variant="h4" gutterBottom>
-        Purchases
+        Purchase History of Individual books
       </Typography>
       <Paper sx={{ mt: 3 }}>
         <Table>

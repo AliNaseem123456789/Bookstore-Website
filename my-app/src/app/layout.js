@@ -1,6 +1,7 @@
 // src/app/layout.js
-import ClientLayout from "@/components/ClientLayout";
+import ClientLayout from "@/components/ClientLayout"; // ✅ fixed path
 import Providers from "@/app/providers"; 
+import { CartProvider } from "@/context/CartContext";
 
 export const metadata = {
   title: "Bookstore",
@@ -12,7 +13,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body suppressHydrationWarning={true}>
         <Providers>
-          <ClientLayout>{children}</ClientLayout>
+          <CartProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </CartProvider>
         </Providers>
       </body>
     </html>
