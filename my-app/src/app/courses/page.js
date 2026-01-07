@@ -1,16 +1,19 @@
 "use client";
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Container,Typography,Card,CardContent,Button,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Grid,List,ListItem,ListItemText,Checkbox,
-} from "@mui/material";
+import {Container,Typography,Card,CardContent,Button,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Grid,List,ListItem,ListItemText,Checkbox,} from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCart } from "@/context/CartContext";
 
 export default function CoursesPage() {
   const [selectedClass, setSelectedClass] = React.useState(null);
   const [open, setOpen] = React.useState(false);
   const [buyerName, setBuyerName] = React.useState("");
   const [selectedBooks, setSelectedBooks] = React.useState([]);
+  const [cart, setCart] = React.useState([]);
+  const { addToCart } = useCart();
+
+
   const [seller, setSeller] = React.useState(null); // 👈 logged in user
   const queryClient = useQueryClient();
 
@@ -29,7 +32,6 @@ export default function CoursesPage() {
     }
     fetchSeller();
   }, []);
-
   // ✅ Fetch all books
   const fetchBooks = async () => {
     const { data, error } = await supabase
@@ -40,26 +42,21 @@ export default function CoursesPage() {
     if (error) throw new Error(error.message);
     return data;
   };
-
   const { data: books = [], error, isLoading } = useQuery({
     queryKey: ["books"],
     queryFn: fetchBooks,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
   });
-
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
-
   const classes = [...new Set(books.map((b) => b.class_grade))];
-
   // ✅ Buy a single book
   async function handleBuyBook(book) {
     if (!buyerName.trim()) {
       alert("Enter buyer name.");
       return;
-    }
-
+    }s
     const { error: salesError } = await supabase.from("purchases").insert({
       buyer_name: buyerName,
       book_id: book.id,
@@ -67,12 +64,10 @@ export default function CoursesPage() {
       date: new Date(),
       sold_by_name: seller?.email || "Unknown", // 👈 seller added
     });
-
     if (salesError) {
       alert("Error saving purchase: " + salesError.message);
       return;
     }
-
     // update stock
     const { error: updateError } = await supabase
       .from("books")
@@ -82,10 +77,46 @@ export default function CoursesPage() {
     if (updateError) {
       alert(`Error updating stock: ${updateError.message}`);
     }
-
     await queryClient.invalidateQueries({ queryKey: ["books"] });
     alert(`Purchased "${book.name}" for PKR ${book.price}`);
   }
+  function addCourseToCart(classGrade) {
+  const courseBooks = books.filter((b) => b.class_grade === classGrade);
+
+  if (courseBooks.length === 0) {
+    alert("No books found for this course.");
+    return;
+  }
+
+  setCart((prev) => {
+    // prevent duplicate courses
+    if (prev.some((c) => c.class_grade === classGrade)) {
+      alert(`Class ${classGrade} already in cart`);
+      return prev;
+    }
+
+    const totalCost = courseBooks.reduce(
+      (sum, b) => sum + Number(b.price),
+      0
+    );
+
+    return [
+      ...prev,
+      {
+        class_grade: classGrade,
+        total_cost: totalCost,
+        books: courseBooks.map((b) => ({
+          id: b.id,
+          name: b.name,
+          price: b.price,
+          quantity: b.quantity,
+        })),
+      },
+    ];
+  });
+
+  alert(`Class ${classGrade} added to cart`);
+}
 
   // ✅ Buy selected books
   async function handleBuySelectedBooks() {
@@ -230,6 +261,7 @@ export default function CoursesPage() {
                 >
                   View Books
                 </Button>
+                
               </CardContent>
             </Card>
           </Grid>
@@ -286,22 +318,50 @@ export default function CoursesPage() {
           </List>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleBuySelectedBooks}
-            variant="contained"
-            color="secondary"
-          >
-            Buy Selected Books
-          </Button>
-          <Button
-            onClick={handleBuyCourse}
-            variant="contained"
-            color="primary"
-          >
-            Buy Full Course
-          </Button>
-        </DialogActions>
+  <Button onClick={() => setOpen(false)}>Cancel</Button>
+  <Button
+    onClick={handleBuySelectedBooks}
+    variant="contained"
+    color="secondary"
+  >
+    Buy Selected Books
+  </Button>
+  <Button
+    onClick={handleBuyCourse}
+    variant="contained"
+    color="primary"
+  >
+    Buy Full Course
+  </Button>
+<Button
+  variant="contained"
+  color="secondary"
+  sx={{ mt: 2, mr: 1 }}
+  onClick={() => {
+    const courseBooks = books.filter((b) => b.class_grade === selectedClass);
+    if (courseBooks.length === 0) return alert("No books found for this course");
+
+    const totalCost = courseBooks.reduce((sum, b) => sum + Number(b.price), 0);
+
+    addToCart({
+      class_grade: selectedClass,
+      total_cost: totalCost,
+      books: courseBooks.map((b) => ({
+        id: b.id,
+        name: b.name,
+        price: b.price,
+        quantity: b.quantity,
+      })),
+    });
+
+    alert(`Class ${selectedClass} added to cart`);
+  }}
+>
+  Add Course to Cart
+</Button>
+
+</DialogActions>
+
       </Dialog>
     </Container>
   );

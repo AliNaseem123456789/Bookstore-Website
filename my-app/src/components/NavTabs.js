@@ -1,20 +1,21 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
-import { Tabs, Tab, Box, Button, Stack, Menu, MenuItem } from "@mui/material";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { Tabs, Tab, Box, Button, Stack, Menu, MenuItem, Badge } from "@mui/material";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AdminPanelSettings } from "@mui/icons-material";
+import { useCart } from "../context/CartContext";
 
-// Optimized NavTabs component
 const NavTabs = React.memo(function NavTabs() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState(null);
   const [adminAnchorEl, setAdminAnchorEl] = useState(null);
 
+  const { cart } = useCart();
+
   useEffect(() => {
     setMounted(true);
-
     async function fetchUser() {
       try {
         const res = await fetch("/api/me");
@@ -29,7 +30,6 @@ const NavTabs = React.memo(function NavTabs() {
     fetchUser();
   }, []);
 
-  // Optimized logout handler with useCallback
   const handleLogout = useCallback(async () => {
     try {
       await fetch("/api/logout", { method: "POST" });
@@ -39,30 +39,28 @@ const NavTabs = React.memo(function NavTabs() {
     }
   }, []);
 
-  // Handle admin menu
   const handleAdminMenuOpen = useCallback((event) => {
     setAdminAnchorEl(event.currentTarget);
   }, []);
-
   const handleAdminMenuClose = useCallback(() => {
     setAdminAnchorEl(null);
   }, []);
 
-  // Memoized routes configuration
-  const routes = React.useMemo(() => [
+  const routes = useMemo(() => [
     { label: "Sell Books", value: "/" },
-    { label: "Sell History", value: "/purchases" },
+    { label: "Books Sold", value: "/purchases" },
     { label: "Sell Courses", value: "/courses" },
-    { label: "Course Sales History", value: "/coursesales" },
+    { label: "Course Sold History", value: "/coursesales" },
+    { label: "Cart", value: "/cart" },
   ], []);
 
-  // Memoized current tab calculation
-  const currentTab = React.useMemo(() => {
-    return routes.find((r) =>
-      r.value === "/"
-        ? pathname === "/"
-        : pathname.startsWith(r.value)
-    )?.value || false;
+  // FIX: longest match first to avoid prefix issues
+  const currentTab = useMemo(() => {
+    if (pathname === "/") return "/"; // exact match
+    // Sort routes by length descending to match longest path first
+    const sortedRoutes = [...routes].sort((a, b) => b.value.length - a.value.length);
+    const match = sortedRoutes.find((r) => pathname.startsWith(r.value));
+    return match ? match.value : false;
   }, [pathname, routes]);
 
   const isAdmin = user?.role === "admin";
@@ -80,19 +78,27 @@ const NavTabs = React.memo(function NavTabs() {
         alignItems: "center",
       }}
     >
-      {/* Left side: navigation */}
+      {/* Left: Tabs */}
       <Tabs value={currentTab}>
         {routes.map((route) => (
           <Tab
             key={route.value}
-            label={route.label}
+            label={
+              route.value === "/cart" ? (
+                <Badge badgeContent={cart.length} color="secondary">
+                  {route.label}
+                </Badge>
+              ) : (
+                route.label
+              )
+            }
             value={route.value}
             component={Link}
             href={route.value}
           />
         ))}
-        
-        {/* Admin tab - only show for admins */}
+
+        {/* Admin tab */}
         {isAdmin && (
           <Tab
             icon={<AdminPanelSettings />}
@@ -104,29 +110,29 @@ const NavTabs = React.memo(function NavTabs() {
         )}
       </Tabs>
 
-      {/* Admin dropdown menu */}
+      {/* Admin dropdown */}
       {isAdmin && (
         <Menu
           anchorEl={adminAnchorEl}
           open={Boolean(adminAnchorEl)}
           onClose={handleAdminMenuClose}
           anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
+            vertical: "bottom",
+            horizontal: "left",
           }}
           transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
+            vertical: "top",
+            horizontal: "left",
           }}
         >
-          <MenuItem 
+          <MenuItem
             onClick={handleAdminMenuClose}
             component={Link}
             href="/admin/users"
           >
             User Management
           </MenuItem>
-          <MenuItem 
+          <MenuItem
             onClick={handleAdminMenuClose}
             component={Link}
             href="/admin/sales"
@@ -136,22 +142,10 @@ const NavTabs = React.memo(function NavTabs() {
         </Menu>
       )}
 
-      {/* Right side: Add account + Logout */}
+      {/* Right: Logout */}
       {user && (
         <Stack direction="row" spacing={2}>
-          <Button
-            component={Link}
-            href="/register"
-            variant="contained"
-            color="primary"
-          >
-            Add New Account
-          </Button>
-          <Button
-            onClick={handleLogout}
-            variant="outlined"
-            color="error"
-          >
+          <Button onClick={handleLogout} variant="outlined" color="error">
             Logout
           </Button>
         </Stack>

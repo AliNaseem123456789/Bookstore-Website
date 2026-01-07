@@ -1,3 +1,4 @@
+//course sales histroy
 "use client";
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
@@ -102,7 +103,7 @@ export default function CourseSalesPage() {
   return (
     <Container maxWidth="lg" sx={{ mt: 6 }}>
       <Typography variant="h4" gutterBottom>
-        Course Sales {sales.length > 0 && `(${sales.length}+)`}
+        Courses sold {sales.length > 0 && `(${sales.length}+)`}
       </Typography>
 
       <Paper sx={{ mt: 3 }}>
