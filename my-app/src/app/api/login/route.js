@@ -43,7 +43,6 @@ export async function POST(req) {
       name: user.name   
     },
   });
-
   res.cookies.set("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
