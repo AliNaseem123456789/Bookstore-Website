@@ -3,8 +3,26 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import {Container,Typography,Card,CardContent,Button,Stack,Dialog,DialogTitle,DialogContent,DialogActions,TextField,
-  CircularProgress,Table,TableBody,TableRow,TableCell,} from "@mui/material";
+import {
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
+  Box,
+} from "@mui/material";
+
 function formatDate(date) {
   return new Intl.DateTimeFormat("en-GB", {
     year: "numeric",
@@ -25,6 +43,7 @@ export default function BookDetailPage({ params }) {
   const [book, setBook] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
+  const [isAdmin, setIsAdmin] = React.useState(false); // Admin state
 
   const [mounted, setMounted] = React.useState(false);
   const [purchaseDate, setPurchaseDate] = React.useState("");
@@ -46,54 +65,87 @@ export default function BookDetailPage({ params }) {
   });
 
   React.useEffect(() => {
-    async function fetchBook() {
+    async function checkAuthAndFetchData() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("books")
-        .select("*")
-        .eq("id", id)
-        .single();
+      try {
+        // 1. Check Authentication and Role
+        const res = await fetch("/api/me");
+        const session = await res.json();
 
-      if (error) setError(error.message);
-      else {
-        setBook(data);
-        setForm({
-          name: data.name || "",
-          publisher: data.publisher || "",
-          class_grade: data.class_grade || "",
-          price: data.price || "",
-          quantity: data.quantity || "",
-        });
+        // Verify if user exists and has admin role
+        // Adjust 'session.user.role' based on your actual API response structure
+        if (!res.ok || session.user?.role !== "admin") {
+          alert("Access Denied: Admin privileges required.");
+          router.push("/"); // Redirect unauthorized users
+          return;
+        }
+
+        setIsAdmin(true);
+
+        // 2. Fetch Book Data
+        const { data, error: fetchError } = await supabase
+          .from("books")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (fetchError) {
+          setError(fetchError.message);
+        } else {
+          setBook(data);
+          setForm({
+            name: data.name || "",
+            publisher: data.publisher || "",
+            class_grade: data.class_grade || "",
+            price: data.price || "",
+            quantity: data.quantity || "",
+          });
+        }
+      } catch (err) {
+        setError("Authentication failed");
+        router.push("/");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
-    if (id) fetchBook();
+    if (id) checkAuthAndFetchData();
 
     setMounted(true);
     setPurchaseDate(formatDate(new Date()));
-  }, [id]);
+  }, [id, router]);
 
+  // Loading state (including auth check)
   if (loading) {
     return (
       <Container sx={{ mt: 10, textAlign: "center" }}>
         <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Loading book details...</Typography>
+        <Typography sx={{ mt: 2 }}>Verifying permissions...</Typography>
       </Container>
     );
   }
+
+  // Prevent rendering if not admin (double safety)
+  if (!isAdmin) return null;
 
   if (error || !book) {
     return (
       <Container sx={{ mt: 10, textAlign: "center" }}>
-        <Typography color="error">Book not found</Typography>
+        <Typography color="error">
+          Book not found or access error: {error}
+        </Typography>
+        <Button onClick={() => router.push("/")} sx={{ mt: 2 }}>
+          Back to Home
+        </Button>
       </Container>
     );
   }
 
-  // 🔥 background color logic
   const stockColor =
-    book.quantity < 3 ? "red" : book.quantity < 10 ? "orange" : "inherit";
+    book.quantity < 3 ? "#ffebee" : book.quantity < 10 ? "#fff3e0" : "inherit";
+
+  const stockTextColor =
+    book.quantity < 3 ? "#c62828" : book.quantity < 10 ? "#ef6c00" : "inherit";
 
   async function handlePurchaseConfirm() {
     try {
@@ -159,102 +211,68 @@ export default function BookDetailPage({ params }) {
 
   return (
     <Container maxWidth="sm" sx={{ mt: 6 }}>
-      <Card>
+      <Card elevation={3}>
         <CardContent>
-          <Typography variant="h5" gutterBottom>
-            {book.name}
-          </Typography>
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
+          >
+            <Typography variant="h5" fontWeight="bold">
+              {book.name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {/* Convert id to string first to avoid the TypeError */}
+              ID: {String(book.id).substring(0, 8)}...
+            </Typography>
+          </Box>
 
-          {/* ✅ Table for details */}
-          <Table>
+          <Table size="small">
             <TableBody>
               <TableRow>
-                <TableCell>Publisher</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Publisher</TableCell>
                 <TableCell>{book.publisher}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell>Class/Grade</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Class/Grade</TableCell>
                 <TableCell>{book.class_grade || "—"}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell>Price</TableCell>
-                <TableCell>{book.price ? `pkr ${book.price}` : "—"}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Price</TableCell>
+                <TableCell>{book.price ? `PKR ${book.price}` : "—"}</TableCell>
               </TableRow>
               <TableRow sx={{ backgroundColor: stockColor }}>
-                <TableCell>Stock</TableCell>
-                <TableCell>{book.quantity}</TableCell>
+                <TableCell sx={{ fontWeight: "bold", color: stockTextColor }}>
+                  Stock
+                </TableCell>
+                <TableCell sx={{ fontWeight: "bold", color: stockTextColor }}>
+                  {book.quantity}
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>
 
-          <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
+          <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
             <Button
               variant="contained"
-              color="primary"
-              onClick={() => setPurchaseOpen(true)}
-              disabled={book.quantity <= 0}
+              color="error"
+              fullWidth
+              onClick={handleRemove}
             >
-              Make Purchase
-            </Button>
-            <Button variant="outlined" color="error" onClick={handleRemove}>
-              Remove Book
+              Remove
             </Button>
             <Button
-              variant="outlined"
+              variant="contained"
               color="secondary"
+              fullWidth
               onClick={() => setEditOpen(true)}
             >
-              Change Details
+              Edit Details
             </Button>
           </Stack>
         </CardContent>
       </Card>
-
-      {/* Purchase Dialog */}
-      <Dialog
-        open={purchaseOpen}
-        onClose={() => setPurchaseOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Make Purchase</DialogTitle>
-        <DialogContent
-          sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}
-        >
-          <TextField
-            label="Buyer Name"
-            value={purchaseForm.buyer_name}
-            onChange={(e) =>
-              setPurchaseForm({ ...purchaseForm, buyer_name: e.target.value })
-            }
-            fullWidth
-          />
-          <TextField
-            label="Amount Paid"
-            type="number"
-            value={purchaseForm.amount_paid}
-            onChange={(e) =>
-              setPurchaseForm({ ...purchaseForm, amount_paid: e.target.value })
-            }
-            fullWidth
-          />
-          {mounted && purchaseDate && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              Purchase Date: {purchaseDate}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPurchaseOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handlePurchaseConfirm}
-            variant="contained"
-            color="primary"
-          >
-            Confirm Purchase
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog
@@ -300,7 +318,7 @@ export default function BookDetailPage({ params }) {
             fullWidth
           />
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>
           <Button onClick={handleSave} variant="contained" color="primary">
             Save Changes

@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Container,
@@ -12,6 +12,8 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Box,
+  Skeleton,
 } from "@mui/material";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -27,9 +29,8 @@ async function fetchBooks() {
   return data;
 }
 
-// ✅ Optimized Table Row Component with React.memo
+// ✅ Optimized Table Row Component
 const BookTableRow = React.memo(function BookTableRow({ book }) {
-  // ✅ useMemo for row color calculation
   const rowColor = useMemo(() => {
     if (book.quantity < 3) return "#ffcccc";
     if (book.quantity < 10) return "#ffe0b3";
@@ -48,15 +49,10 @@ const BookTableRow = React.memo(function BookTableRow({ book }) {
       <TableCell>{book.name}</TableCell>
       <TableCell>{book.publisher}</TableCell>
       <TableCell>{book.class_grade || "—"}</TableCell>
-      <TableCell>
-        {book.price ? `PKR ${book.price}` : "—"}
-      </TableCell>
+      <TableCell>{book.price ? `PKR ${book.price}` : "—"}</TableCell>
       <TableCell>{book.quantity}</TableCell>
       <TableCell align="center">
-        <Link
-          href={`/book/${book.id}`}
-          style={{ textDecoration: "none" }}
-        >
+        <Link href={`/book/${book.id}`} style={{ textDecoration: "none" }}>
           <Button variant="outlined" size="small">
             View
           </Button>
@@ -66,25 +62,35 @@ const BookTableRow = React.memo(function BookTableRow({ book }) {
   );
 });
 
-// ✅ Add custom comparison function for better performance
-const areEqual = (prevProps, nextProps) => {
-  return (
-    prevProps.book.id === nextProps.book.id &&
-    prevProps.book.name === nextProps.book.name &&
-    prevProps.book.publisher === nextProps.book.publisher &&
-    prevProps.book.class_grade === nextProps.book.class_grade &&
-    prevProps.book.price === nextProps.book.price &&
-    prevProps.book.quantity === nextProps.book.quantity
-  );
-};
-
-const MemoizedBookTableRow = React.memo(BookTableRow, areEqual);
-
 export default function Home() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // 1. Check Admin Status
+  useEffect(() => {
+    async function checkAdmin() {
+      try {
+        const res = await fetch("/api/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user?.role === "admin") {
+            setIsAdmin(true);
+          }
+        }
+      } catch (err) {
+        console.error("Auth check failed", err);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+    checkAdmin();
+  }, []);
+
+  // 2. Fetch Books Data
   const {
-    data: books = [], // ✅ Default to empty array
+    data: books = [],
     error,
-    isLoading,
+    isLoading: dataLoading,
   } = useQuery({
     queryKey: ["books"],
     queryFn: fetchBooks,
@@ -92,17 +98,27 @@ export default function Home() {
     refetchOnWindowFocus: false,
   });
 
-  // ✅ useMemo for empty state check
   const isEmpty = useMemo(() => books.length === 0, [books]);
 
-  if (isLoading) return <p>Loading...</p>;
-  if (error) return <p>Error loading books: {error.message}</p>;
+  if (dataLoading)
+    return (
+      <Container sx={{ mt: 4 }}>
+        <Typography>Loading books...</Typography>
+      </Container>
+    );
+
+  if (error)
+    return (
+      <Container sx={{ mt: 4 }}>
+        <Typography color="error">Error: {error.message}</Typography>
+      </Container>
+    );
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
       {/* Header */}
-      <div
-        style={{
+      <Box
+        sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -112,24 +128,40 @@ export default function Home() {
         <Typography variant="h4" fontWeight="bold">
           📚 Bookstore
         </Typography>
-        <Link href="/add-book">
-          <Button variant="contained" color="primary">
-            ➕ Add Book
-          </Button>
-        </Link>
-      </div>
+
+        {/* ✅ Only show button if NOT loading auth AND user is admin */}
+        {!authLoading && isAdmin && (
+          <Link href="/add-book">
+            <Button variant="contained" color="primary" startIcon="➕">
+              Add Book
+            </Button>
+          </Link>
+        )}
+      </Box>
 
       {/* Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 3 }}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell><strong>Name</strong></TableCell>
-              <TableCell><strong>Publisher</strong></TableCell>
-              <TableCell><strong>Class/Grade</strong></TableCell>
-              <TableCell><strong>Price</strong></TableCell>
-              <TableCell><strong>Stock</strong></TableCell>
-              <TableCell align="center"><strong>Action</strong></TableCell>
+              <TableCell>
+                <strong>Name</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Publisher</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Class/Grade</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Price</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Stock</strong>
+              </TableCell>
+              <TableCell align="center">
+                <strong>Action</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -140,9 +172,7 @@ export default function Home() {
                 </TableCell>
               </TableRow>
             ) : (
-              books.map((book) => (
-                <MemoizedBookTableRow key={book.id} book={book} />
-              ))
+              books.map((book) => <BookTableRow key={book.id} book={book} />)
             )}
           </TableBody>
         </Table>
