@@ -1,0 +1,343 @@
+S.No,Name of Books,Publisher,Grade,Qty,Price
+1,Kids Creative English Reader  For Nursery 1,scientific,Nursery,0,300
+2,Takhliqi Urdu Quaida For Nursery 1 ,scientific,Nursery,0,300
+3,MAD (make arts daily) EYFS I,Acme,Nursery,0,410
+4,Printed Urdu Copy,scientific,Nursery,0,425
+5,Printed English Copy,scientific,Nursery,0,425
+6,Printed Math Copy,scientific,Nursery,0,425
+7,introductroy english ,Gaba Sons,KG-1,0,410
+8,English for KG-1,Gaba Sons,KG-1,0,490
+9,Maths Series Kindergarten ,Diamond Pub,KG-1,0,650
+10,Urdu ki amli kitab (awwal),Scientific Pub,KG-1,0,355
+11,Link Dilkash Quaida,Rahber Pub,KG-1,0,170
+12,MAD (make arts daily) EYFS II,Acme,KG-1,0,410
+13,Oxford Modern English Primer B,Oxford Pub,KG-2,0,850
+14,Rahber Awaze Urdu 3rd Step KG-2,Rahber,KG-2,0,340
+15,MAD (make arts daily) EYFS III,Acme,KG-2,0,410
+16,Math Prep-II,AJ Publisher,KG-2,0,700
+17,Urdu Prep-II,AJ Publisher,KG-2,0,700
+18,Eng Prep-II,AJ Publisher,KG-2,0,700
+19,Oxford Modern English Book-1 (3rd Edition),Oxford Pub,1,0,950
+20,New Brighter Grammar Book 1,Gaba Sons,1,0,395
+21,Mind Master Science Book -1,Gaba Sons,1,0,240
+22,Rahber Math Book-1,Rahber,1,0,300
+23,Social Studies Book 1 (M.Zubair Waine),Gohar,1,0,240
+24,Mind Master Series Islamiat Book-1,Gaba Sons,1,0,170
+25,Urdu Roshni Silsila Kirnai Book-1+C134,Scientific Pub,1,0,245
+26,Computer Today-1(updated edition),Gaba Sons,1,0,535
+27,Drawing Series-1 (Revised Edition),Gaba Sons,1,0,265
+28,Oxford Modern English Book-2 (3rd Edition),Oxford Pub,2,0,950
+29,New Brighter Grammar book-2,Gaba Sons,2,0,410
+30,Mind Master Science Book -2,Gaba Sons,2,0,260
+31,Rahber Math Book-2,Rahber,2,0,300
+32,Social Studies Book 2 (M.Zubair Waine),Gohar,2,0,270
+33,Mind Master Series Islamiat Book-2,Gaba Sons,2,0,180
+34,Urdu Roshni Silsila Suraj Book-2,Scientific Pub,2,0,255
+35,Computer Today-2(updated edition),Gaba Sons,2,0,595
+36,Drawing Series-2 (Revised Edition),Gaba Sons,2,0,265
+37,Oxford Modern English Book-3 (3rd Edition),Oxford Pub,3,0,950
+38,Skylark Grammer Book 3,Gohar Pub,3,0,440
+39,Mind Master Science Book -3,Gaba Sons,3,0,320
+40,Rahber Math Book-3,Rahber,3,0,320
+41,Social Studies Book 3 (M.Zubair Waine),Gohar,3,0,390
+42,Mind Master Series Islamiat Book-3,Gaba Sons,3,0,200
+43,Urdu Roshni Silsila Chanda Book-3,Scientific Pub,3,0,260
+44,Computer Today-3(updated edition),Gaba Sons,3,0,625
+45,Drawing Series-3 (Revised Edition),Gaba Sons,3,0,265
+46,Oxford Modern English Book-4 (3rd Edition),Oxford Pub,4,0,960
+47,Rahber Math Book-4,Rahber,4,0,360
+48,Mind Master Science Book -4,Gaba Sons,4,0,320
+49,Urdu Roshni Silsila Taray Book-4,Scientific Pub,4,0,265
+50,Social Studies Book 4 (M.Zubair Waine),Gohar,4,0,380
+51,Mind Master Series Islamiat Book-4,Gaba Sons,4,0,240
+52,Computer Today-4(updated edition),Gaba Sons,4,0,625
+53,Drawing Series-4 (Revised Edition),Gaba Sons,4,0,265
+54,Skylark Gramer Book 4,Gohar Pub,4,0,440
+55,Oxford Modern English Book-5 (3rd Edition),Oxford Pub,5,0,960
+56,Rahber Math Book-5,Rahber,5,0,460
+57,Mind Master Science Book -5,Gaba Sons,5,0,345
+58,Urdu Roshni Silsila khahkasha Book-5,Scientific Pub,5,0,275
+59,Social Studies Book 5 (M.Zubair Waine),Gohar,5,0,550
+60,Mind Master Series Islamiat Book-5,Gaba Sons,5,0,240
+61,Computer Today-5(updated edition),Gaba Sons,5,0,675
+62,Sindhi Book 3,S.T.B.B,5,0,
+63,Skylark Gramer Book 5,Gohar Pub,5,0,440
+64,Drawing Series-5 (Revised Edition),Gaba Sons,5,0,265
+65,New Modern English Book 6 (3rd Edition),Oxford Pub,6,0,1050
+66,Computer Today-6 ,Gaba Sons,6,0,720
+67,Islamite book 6,Gaba Sons,6,0,310
+68,Skylark Gramer Book 6,Gohar Pub,6,0,760
+69,S.S Drawing book 6,S.S Publisher,6,0,180
+70,Mathematics Book-6 (English Medium),S.T.B.B,6,0,440
+71,Esay Science Book 6,Oxford Pub,6,0,460
+72,Urdu Book-6,S.T.B.B,6,0,190
+73,History and Geography-6 (M.Zubair Waine),Gohar,6,0,640
+74,Sindhi Book-5,S.T.B.B,6,0,108
+75,New Modern English Book 7 (3rd Edition),Oxford Pub,7,0,1050
+76,Computer Today-7 ,Gaba Sons,7,0,720
+77,Islamite book 7,Gaba Sons,7,0,330
+78,Skylark Gramer Book 7,Gohar Pub,7,0,910
+79,S.S Drawing book 7,S.S Publisher,7,0,180
+80,Mathematics Book-7 (English Medium),S.T.B.B,7,0,450
+81,Esay Science Book 7,Oxford Pub,7,0,460
+82,Urdu Book-7,S.T.B.B,7,0,230
+83,History and Geography -7 (M.Zubair Waine),Gohar,7,0,640
+84,Sindhi Book-7,S.T.B.B,7,0,120
+85,New Modern English Book 8 (3rd Edition),Oxford Pub,8,0,1050
+86,Computer Today-8,Gaba Sons,8,0,780
+87,Islamite book 8,Gaba Sons,8,0,310
+88,Skylark Gramer Book 8,Gohar Pub,8,0,960
+89,S.S Drawing book 8,S.S Publisher,8,0,180
+90,Mathematics Book-8 (English Medium),S.T.B.B,8,0,450
+91,Esay Science Book 8,Oxford Pub,8,0,460
+92,History and Geography -8 (M.Zubair Waine),Gohar,8,0,640
+93,Sindhi Book-8,S.T.B.B,8,0,120
+94,Urdu Book-8,S.T.B.B,8,0,190
+95,Name of Books,Publisher,9,0,Price
+96,Islamite IX,S.T.B.B,9,0,265
+97,Urdu IX,S.T.B.B,9,0,283
+98,Mathematics IX,S.T.B.B,9,0,510
+99,Physics IX,S.T.B.B,9,0,375
+100,Computer IX,S.T.B.B,9,0,290
+101,Chemistry IX,S.T.B.B,9,0,320
+102,Biology IX,S.T.B.B,9,0,350
+103,English IX,S.T.B.B,9,0,381
+104,Pakistan Studies X,S.T.B.B,10,0,325
+105,Sindhi X,S.T.B.B,10,0,120
+106,Mathematics X,S.T.B.B,10,0,520
+107,Physics X,S.T.B.B,10,0,405
+108,Computer X,S.T.B.B,10,0,265
+109,Chemistry X,S.T.B.B,10,0,246
+110,Biology X,S.T.B.B,10,0,340
+111,English X,S.T.B.B,10,0,325
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,
+,,,,,

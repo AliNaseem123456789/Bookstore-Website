@@ -1,0 +1,436 @@
+"use client";
+import * as React from "react";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Grid,
+  List,
+  ListItem,
+  ListItemText,
+  Checkbox,
+  Box,
+  Divider,
+  InputAdornment,
+} from "@mui/material";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCart } from "@/context/CartContext";
+
+const gradeOrder = [
+  "Nursery",
+  "KG-1",
+  "KG-2",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+];
+
+export default function CoursesPage() {
+  const [selectedClass, setSelectedClass] = React.useState(null);
+  const [open, setOpen] = React.useState(false);
+  const [buyerName, setBuyerName] = React.useState("");
+  const [discount, setDiscount] = React.useState(0); // New Discount State
+  const [selectedBooks, setSelectedBooks] = React.useState([]);
+  const [seller, setSeller] = React.useState(null);
+
+  const queryClient = useQueryClient();
+  const { addToCart } = useCart();
+
+  // Fetch logged-in seller
+  React.useEffect(() => {
+    async function fetchSeller() {
+      try {
+        const res = await fetch("/api/me");
+        if (res.ok) {
+          const data = await res.json();
+          setSeller(data.user);
+        }
+      } catch (err) {
+        console.error("Error fetching seller:", err);
+      }
+    }
+    fetchSeller();
+  }, []);
+
+  const {
+    data: books = [],
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ["books"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("books")
+        .select("id, name, publisher, class_grade, price, quantity");
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Logic to calculate totals based on selection
+  const currentSelectionTotal = React.useMemo(() => {
+    return books
+      .filter((b) => selectedBooks.includes(b.id))
+      .reduce((sum, b) => sum + Number(b.price), 0);
+  }, [selectedBooks, books]);
+
+  const fullCourseTotal = React.useMemo(() => {
+    return books
+      .filter((b) => b.class_grade === selectedClass)
+      .reduce((sum, b) => sum + Number(b.price), 0);
+  }, [selectedClass, books]);
+
+  if (isLoading) return <Typography sx={{ p: 4 }}>Loading books...</Typography>;
+  if (error)
+    return (
+      <Typography color="error" sx={{ p: 4 }}>
+        Error: {error.message}
+      </Typography>
+    );
+
+  const classes = [...new Set(books.map((b) => b.class_grade))].sort((a, b) => {
+    const indexA = gradeOrder.indexOf(String(a));
+    const indexB = gradeOrder.indexOf(String(b));
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
+  // --- Purchase Logic ---
+
+  async function handleBuyBook(book) {
+    if (!buyerName.trim()) return alert("Enter buyer name.");
+
+    const { error: salesError } = await supabase.from("purchases").insert({
+      buyer_name: buyerName,
+      book_id: book.id,
+      amount_paid: book.price, // Individual "Buy Now" ignores the general discount field
+      date: new Date(),
+      sold_by_name: seller?.email || "Unknown",
+    });
+
+    if (salesError) return alert("Error: " + salesError.message);
+
+    await supabase
+      .from("books")
+      .update({ quantity: book.quantity - 1 })
+      .eq("id", book.id);
+    await queryClient.invalidateQueries({ queryKey: ["books"] });
+    alert(`Purchased "${book.name}"`);
+  }
+
+  async function handleBuySelectedBooks() {
+    if (!buyerName.trim() || selectedBooks.length === 0) {
+      return alert("Enter buyer name and select books.");
+    }
+    const chosen = books.filter((b) => selectedBooks.includes(b.id));
+    const finalCost = Math.max(0, currentSelectionTotal - discount);
+
+    const { error } = await supabase.from("course_sales").insert({
+      buyer_name: buyerName,
+      class_grade: selectedClass,
+      no_of_books: chosen.length,
+      total_cost: currentSelectionTotal,
+      cost_paid: finalCost,
+      discount_applied: discount, // Ensure this column exists in DB
+      books_sold: chosen.map((b) => ({
+        id: b.id,
+        name: b.name,
+        price: b.price,
+      })),
+      date: new Date(),
+      sold_by_name: seller?.email || "Unknown",
+    });
+
+    if (error) return alert("Error: " + error.message);
+
+    for (const b of chosen) {
+      await supabase
+        .from("books")
+        .update({ quantity: b.quantity - 1 })
+        .eq("id", b.id);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["books"] });
+    alert(`Purchased ${chosen.length} books for PKR ${finalCost}`);
+    setOpen(false);
+  }
+
+  async function handleBuyCourse() {
+    if (!buyerName.trim()) return alert("Enter buyer name.");
+    const courseBooks = books.filter((b) => b.class_grade === selectedClass);
+    const finalCost = Math.max(0, fullCourseTotal - discount);
+
+    const { error } = await supabase.from("course_sales").insert({
+      buyer_name: buyerName,
+      class_grade: selectedClass,
+      no_of_books: courseBooks.length,
+      total_cost: fullCourseTotal,
+      cost_paid: finalCost,
+      discount_applied: discount,
+      books_sold: courseBooks.map((b) => ({
+        id: b.id,
+        name: b.name,
+        price: b.price,
+      })),
+      date: new Date(),
+      sold_by_name: seller?.email || "Unknown",
+    });
+
+    if (error) return alert("Error: " + error.message);
+
+    for (const b of courseBooks) {
+      await supabase
+        .from("books")
+        .update({ quantity: b.quantity - 1 })
+        .eq("id", b.id);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["books"] });
+    alert(`Full course purchased for PKR ${finalCost}`);
+    setOpen(false);
+  }
+
+  // --- Cart Logic ---
+
+  const handleAddSelectedToCart = () => {
+    if (selectedBooks.length === 0) return alert("Select books first.");
+    const chosen = books.filter((b) => selectedBooks.includes(b.id));
+
+    addToCart({
+      class_grade: selectedClass,
+      display_name: `Class ${selectedClass} (Partial)`,
+      total_cost: currentSelectionTotal,
+      discount_amount: discount,
+      is_full_course: false,
+      books: chosen.map((b) => ({
+        id: b.id,
+        name: b.name,
+        price: b.price,
+        quantity: b.quantity,
+      })),
+    });
+    alert("Added to cart with discount.");
+    setOpen(false);
+  };
+
+  const handleAddFullCourseToCart = () => {
+    const courseBooks = books.filter((b) => b.class_grade === selectedClass);
+    addToCart({
+      class_grade: selectedClass,
+      display_name: `Class ${selectedClass} (Full Course)`,
+      total_cost: fullCourseTotal,
+      discount_amount: discount,
+      is_full_course: true,
+      books: courseBooks.map((b) => ({
+        id: b.id,
+        name: b.name,
+        price: b.price,
+        quantity: b.quantity,
+      })),
+    });
+    alert(`Full course added to cart.`);
+    setOpen(false);
+  };
+
+  function handleOpen(classGrade) {
+    setSelectedClass(classGrade);
+    setBuyerName("");
+    setDiscount(0);
+    setSelectedBooks([]);
+    setOpen(true);
+  }
+
+  function toggleBookSelection(bookId) {
+    setSelectedBooks((prev) =>
+      prev.includes(bookId)
+        ? prev.filter((id) => id !== bookId)
+        : [...prev, bookId],
+    );
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 6 }}>
+      <Typography variant="h4" fontWeight="bold" gutterBottom>
+        Courses
+      </Typography>
+
+      <Grid container spacing={3}>
+        {classes.map((cls) => (
+          <Grid item xs={12} sm={6} md={4} key={cls}>
+            <Card elevation={2}>
+              <CardContent>
+                <Typography variant="h6">Class {cls}</Typography>
+                <Typography color="text.secondary">
+                  Books: {books.filter((b) => b.class_grade === cls).length}
+                </Typography>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  sx={{ mt: 2 }}
+                  onClick={() => handleOpen(cls)}
+                >
+                  View Curriculum
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle sx={{ fontWeight: "bold" }}>
+          Class {selectedClass} - Curriculum
+        </DialogTitle>
+
+        <DialogContent dividers>
+          {/* Input Area: Buyer and Discount */}
+          <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
+            <Grid item xs={12} md={8}>
+              <TextField
+                label="Buyer Name"
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Discount"
+                type="number"
+                value={discount}
+                onChange={(e) =>
+                  setDiscount(Math.max(0, Number(e.target.value)))
+                }
+                fullWidth
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">PKR</InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+          </Grid>
+
+          {/* Pricing Display */}
+          <Box
+            sx={{
+              p: 2,
+              mb: 3,
+              bgcolor: "#f9f9f9",
+              borderRadius: 2,
+              border: "1px solid #eee",
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Selected Total: PKR {currentSelectionTotal}
+            </Typography>
+            <Typography variant="h6" color="primary" fontWeight="bold">
+              Final Payable: PKR {Math.max(0, currentSelectionTotal - discount)}
+            </Typography>
+          </Box>
+
+          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+            Select Books:
+          </Typography>
+          <List>
+            {books
+              .filter((b) => b.class_grade === selectedClass)
+              .map((book) => (
+                <ListItem
+                  key={book.id}
+                  divider
+                  secondaryAction={
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleBuyBook(book)}
+                      disabled={book.quantity <= 0}
+                    >
+                      Buy Now
+                    </Button>
+                  }
+                >
+                  <Checkbox
+                    checked={selectedBooks.includes(book.id)}
+                    onChange={() => toggleBookSelection(book.id)}
+                    disabled={book.quantity <= 0}
+                  />
+                  <ListItemText
+                    primary={book.name}
+                    secondary={`PKR ${book.price} | Stock: ${book.quantity}`}
+                  />
+                </ListItem>
+              ))}
+          </List>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3, flexDirection: "column", gap: 1.5 }}>
+          <Box display="flex" gap={2} width="100%">
+            <Button
+              fullWidth
+              variant="outlined"
+              color="secondary"
+              disabled={selectedBooks.length === 0}
+              onClick={handleBuySelectedBooks}
+            >
+              Buy Selected ({selectedBooks.length})
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              color="secondary"
+              disabled={selectedBooks.length === 0}
+              onClick={handleAddSelectedToCart}
+            >
+              Add to Cart
+            </Button>
+          </Box>
+          <Divider sx={{ width: "100%", my: 0.5 }} />
+          <Box display="flex" gap={2} width="100%">
+            <Button
+              fullWidth
+              variant="outlined"
+              color="primary"
+              onClick={handleBuyCourse}
+            >
+              Buy Full Course
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              onClick={handleAddFullCourseToCart}
+            >
+              Add Full Course to Cart
+            </Button>
+          </Box>
+          <Button onClick={() => setOpen(false)} color="inherit">
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
