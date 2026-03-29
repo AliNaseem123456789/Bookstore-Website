@@ -26,51 +26,71 @@ import { useCart } from "@/context/CartContext";
 export default function CourseCurriculumDialog({
   open,
   onClose,
+  isCopiesOnly,
   selectedClass,
-  books,
+  books, // Entire inventory list
   seller,
 }) {
   const [buyerName, setBuyerName] = React.useState("");
   const [discount, setDiscount] = React.useState(0);
-  const [selectedBooks, setSelectedBooks] = React.useState([]); // [{id, qty}]
+  const [selectedBooks, setSelectedBooks] = React.useState([]);
   const [courseDefaults, setCourseDefaults] = React.useState([]);
+  const [classMap, setClassMap] = React.useState([]);
 
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
 
-  // 1. Fetch Defaults from Supabase when dialog opens
+  // 1. Fetch Class Map and Defaults
   React.useEffect(() => {
-    async function fetchDefaults() {
-      const { data, error } = await supabase
-        .from("course_defaults")
-        .select("*")
-        .eq("class_grade", selectedClass);
-      if (!error && data) setCourseDefaults(data);
+    async function fetchData() {
+      const [defRes, mapRes] = await Promise.all([
+        supabase
+          .from("course_defaults")
+          .select("*")
+          .eq("class_grade", selectedClass),
+        supabase
+          .from("class_item_map")
+          .select("book_id")
+          .eq("class_grade", selectedClass),
+      ]);
+
+      if (defRes.data) setCourseDefaults(defRes.data);
+      if (mapRes.data) setClassMap(mapRes.data.map((m) => m.book_id));
     }
-    if (open) fetchDefaults();
-  }, [open, selectedClass]);
+    if (open && !isCopiesOnly) fetchData();
+  }, [open, selectedClass, isCopiesOnly]);
 
-  // Filter books for the current class
-  const classBooks = React.useMemo(
-    () => books.filter((b) => b.class_grade === selectedClass),
-    [books, selectedClass],
-  );
+  // 2. Identify which items to show
+  const displayItems = React.useMemo(() => {
+    if (isCopiesOnly) {
+      return books.filter((b) => b.Type === "Copy");
+    }
+    return books.filter((b) => classMap.includes(b.id));
+  }, [books, classMap, isCopiesOnly]);
 
-  // 2. Helper to get default qty for an item
+  const title = isCopiesOnly
+    ? "All Copies Inventory"
+    : `Class ${selectedClass} - Curriculum`;
+
+  // 3. Helper for variable quantities - MODIFIED FOR 0 DEFAULT IN COPIES SECTION
   const getDefaultQty = React.useCallback(
     (item) => {
+      // If we are in the "All Copies" section, default is always 0
+      if (isCopiesOnly) return 0;
+
+      // Otherwise, use lookup rules for Curriculum section
       if (item.Type !== "Copy") return 1;
       const rule = courseDefaults.find((r) =>
         item.name.toLowerCase().includes(r.item_name_pattern.toLowerCase()),
       );
       return rule ? rule.default_qty : 1;
     },
-    [courseDefaults],
+    [courseDefaults, isCopiesOnly],
   );
 
-  // 3. Full Course Data (Calculated with dynamic quantities)
+  // 4. Calculations
   const fullCourseData = React.useMemo(() => {
-    const items = classBooks.map((b) => ({
+    const items = displayItems.map((b) => ({
       id: b.id,
       name: b.name,
       price: b.price,
@@ -81,9 +101,8 @@ export default function CourseCurriculumDialog({
       0,
     );
     return { items, total };
-  }, [classBooks, getDefaultQty]);
+  }, [displayItems, getDefaultQty]);
 
-  // Selected Total Calculation
   const currentSelectionTotal = React.useMemo(() => {
     return selectedBooks.reduce((sum, selected) => {
       const book = books.find((b) => b.id === selected.id);
@@ -92,13 +111,16 @@ export default function CourseCurriculumDialog({
   }, [selectedBooks, books]);
 
   // --- Handlers ---
+
   const toggleBookSelection = (bookId) => {
     setSelectedBooks((prev) => {
       const exists = prev.find((i) => i.id === bookId);
       if (exists) return prev.filter((i) => i.id !== bookId);
-
       const book = books.find((b) => b.id === bookId);
-      return [...prev, { id: bookId, qty: getDefaultQty(book) }];
+
+      // If it's a copy-only section, start at 1 when checked even if default is 0
+      const startQty = isCopiesOnly ? 1 : getDefaultQty(book);
+      return [...prev, { id: bookId, qty: startQty }];
     });
   };
 
@@ -116,9 +138,9 @@ export default function CourseCurriculumDialog({
     if (!buyerName.trim()) return alert("Enter buyer name.");
     const finalCost = Math.max(0, fullCourseData.total - discount);
 
-    const { error } = await supabase.from("course_sales").insert({
+    const { error: saleError } = await supabase.from("course_sales").insert({
       buyer_name: buyerName,
-      class_grade: selectedClass,
+      class_grade: isCopiesOnly ? "Copies" : selectedClass,
       no_of_books: fullCourseData.items.reduce((a, b) => a + b.qty, 0),
       total_cost: fullCourseData.total,
       cost_paid: finalCost,
@@ -128,87 +150,84 @@ export default function CourseCurriculumDialog({
       sold_by_name: seller?.email || "Unknown",
     });
 
-    if (error) return alert("Error: " + error.message);
-    for (const b of fullCourseData.items) {
-      const original = books.find((x) => x.id === b.id);
+    if (saleError) return alert("Error recording sale: " + saleError.message);
+
+    for (const item of fullCourseData.items) {
+      const currentInInventory = books.find((b) => b.id === item.id);
       await supabase
         .from("books")
-        .update({ quantity: original.quantity - b.qty })
-        .eq("id", b.id);
+        .update({ quantity: currentInInventory.quantity - item.qty })
+        .eq("id", item.id);
     }
+
     await queryClient.invalidateQueries({ queryKey: ["books"] });
-    alert(`Full course purchased for PKR ${finalCost}`);
+    alert(`Purchase successful for PKR ${finalCost}`);
     onClose();
   };
 
   const handleAddFullCourseToCart = () => {
     addToCart({
-      class_grade: selectedClass,
-      display_name: `Class ${selectedClass} (Full Course)`,
+      class_grade: isCopiesOnly ? "Copies" : selectedClass,
+      display_name: isCopiesOnly
+        ? "All Copies Bulk"
+        : `Class ${selectedClass} (Full Course)`,
       total_cost: fullCourseData.total,
       discount_amount: discount,
-      is_full_course: true,
+      is_full_course: !isCopiesOnly,
       books: fullCourseData.items.map((i) => ({ ...i, quantity: i.qty })),
     });
-    alert(`Full course added to cart.`);
+    alert(`Added to cart.`);
     onClose();
   };
 
   const handleBuySelected = async () => {
     if (!buyerName.trim() || selectedBooks.length === 0)
       return alert("Enter name and select items.");
-    const chosen = selectedBooks.map((s) => ({
-      ...books.find((b) => b.id === s.id),
-      selectedQty: s.qty,
-    }));
     const finalCost = Math.max(0, currentSelectionTotal - discount);
 
-    const { error } = await supabase.from("course_sales").insert({
+    const { error: saleError } = await supabase.from("course_sales").insert({
       buyer_name: buyerName,
-      class_grade: selectedClass,
-      no_of_books: chosen.reduce((a, b) => a + b.selectedQty, 0),
+      class_grade: isCopiesOnly ? "Copies" : selectedClass,
+      no_of_books: selectedBooks.reduce((a, b) => a + b.qty, 0),
       total_cost: currentSelectionTotal,
       cost_paid: finalCost,
       discount_applied: discount,
-      books_sold: chosen.map((b) => ({
-        id: b.id,
-        name: b.name,
-        price: b.price,
-        qty: b.selectedQty,
+      books_sold: selectedBooks.map((s) => ({
+        ...books.find((b) => b.id === s.id),
+        qty: s.qty,
       })),
       date: new Date(),
       sold_by_name: seller?.email || "Unknown",
     });
 
-    if (error) return alert("Error: " + error.message);
-    for (const b of chosen) {
+    if (saleError) return alert("Error: " + saleError.message);
+
+    for (const s of selectedBooks) {
+      const currentInInventory = books.find((b) => b.id === s.id);
       await supabase
         .from("books")
-        .update({ quantity: b.quantity - b.selectedQty })
-        .eq("id", b.id);
+        .update({ quantity: currentInInventory.quantity - s.qty })
+        .eq("id", s.id);
     }
+
     await queryClient.invalidateQueries({ queryKey: ["books"] });
     alert(`Purchased for PKR ${finalCost}`);
     onClose();
   };
 
   const handleAddSelectedToCart = () => {
-    if (selectedBooks.length === 0) return alert("Select books first.");
-    const chosen = selectedBooks.map((s) => ({
-      ...books.find((b) => b.id === s.id),
-      selectedQty: s.qty,
-    }));
+    if (selectedBooks.length === 0) return alert("Select items first.");
     addToCart({
-      class_grade: selectedClass,
-      display_name: `Class ${selectedClass} (Partial)`,
+      class_grade: isCopiesOnly ? "Copies" : selectedClass,
+      display_name: isCopiesOnly
+        ? "Selected Copies"
+        : `Class ${selectedClass} (Partial)`,
       total_cost: currentSelectionTotal,
       discount_amount: discount,
       is_full_course: false,
-      books: chosen.map((b) => ({
-        id: b.id,
-        name: b.name,
-        price: b.price,
-        quantity: b.selectedQty,
+      books: selectedBooks.map((s) => ({
+        ...books.find((b) => b.id === s.id),
+        quantity: s.qty,
       })),
     });
     alert("Added to cart.");
@@ -216,7 +235,7 @@ export default function CourseCurriculumDialog({
   };
 
   const renderItemList = (type) => {
-    const filtered = classBooks.filter((b) => b.Type === type);
+    const filtered = displayItems.filter((b) => b.Type === type);
     if (filtered.length === 0) return null;
     return (
       <Box sx={{ mb: 2 }}>
@@ -239,29 +258,31 @@ export default function CourseCurriculumDialog({
                 />
                 <ListItemText
                   primary={item.name}
-                  secondary={`PKR ${item.price} | Stock: ${item.quantity}`}
+                  secondary={
+                    isCopiesOnly
+                      ? `PKR ${item.price} | Stock: ${item.quantity} | Class: ${item.class_grade}`
+                      : `PKR ${item.price} | Stock: ${item.quantity}`
+                  }
                 />
-                {type !== "Book" && (
-                  <Box sx={{ display: "flex", alignItems: "center", mr: 2 }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => updateItemQty(item.id, -1, item.quantity)}
-                      disabled={!isSelected}
-                    >
-                      <Remove fontSize="small" />
-                    </IconButton>
-                    <Typography sx={{ mx: 1, fontWeight: "bold" }}>
-                      {currentQty}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => updateItemQty(item.id, 1, item.quantity)}
-                      disabled={!isSelected}
-                    >
-                      <Add fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
+                <Box sx={{ display: "flex", alignItems: "center", mr: 2 }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => updateItemQty(item.id, -1, item.quantity)}
+                    disabled={!isSelected}
+                  >
+                    <Remove fontSize="small" />
+                  </IconButton>
+                  <Typography sx={{ mx: 1, fontWeight: "bold" }}>
+                    {currentQty}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={() => updateItemQty(item.id, 1, item.quantity)}
+                    disabled={!isSelected}
+                  >
+                    <Add fontSize="small" />
+                  </IconButton>
+                </Box>
               </ListItem>
             );
           })}
@@ -272,9 +293,7 @@ export default function CourseCurriculumDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle sx={{ fontWeight: "bold" }}>
-        Class {selectedClass} - Curriculum
-      </DialogTitle>
+      <DialogTitle sx={{ fontWeight: "bold" }}>{title}</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} md={8}>
@@ -313,22 +332,23 @@ export default function CourseCurriculumDialog({
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            Selected Total: PKR {currentSelectionTotal} | Full Course: PKR{" "}
-            {fullCourseData.total}
+            Selected Total: PKR {currentSelectionTotal}
+            {!isCopiesOnly && ` | Course Total: PKR ${fullCourseData.total}`}
           </Typography>
           <Typography variant="h6" color="primary" fontWeight="bold">
-            Final Payable: PKR{" "}
+            Payable: PKR{" "}
             {Math.max(
               0,
               (selectedBooks.length > 0
                 ? currentSelectionTotal
-                : fullCourseData.total) - discount,
+                : isCopiesOnly
+                  ? 0
+                  : fullCourseData.total) - discount,
             )}
           </Typography>
         </Box>
 
-        {renderItemList("Book")}
-        <Divider sx={{ my: 2 }} />
+        {!isCopiesOnly && renderItemList("Book")}
         {renderItemList("Copy")}
       </DialogContent>
 
@@ -353,25 +373,31 @@ export default function CourseCurriculumDialog({
             Add to Cart
           </Button>
         </Box>
-        <Divider sx={{ width: "100%", my: 0.5 }} />
-        <Box display="flex" gap={2} width="100%">
-          <Button
-            fullWidth
-            variant="outlined"
-            color="primary"
-            onClick={handleBuyCourse}
-          >
-            Buy Full Course (PKR {fullCourseData.total})
-          </Button>
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            onClick={handleAddFullCourseToCart}
-          >
-            Add Full Course to Cart
-          </Button>
-        </Box>
+
+        {!isCopiesOnly && (
+          <>
+            <Divider sx={{ width: "100%", my: 0.5 }} />
+            <Box display="flex" gap={2} width="100%">
+              <Button
+                fullWidth
+                variant="outlined"
+                color="primary"
+                onClick={handleBuyCourse}
+              >
+                Buy Full Course (PKR {fullCourseData.total})
+              </Button>
+              <Button
+                fullWidth
+                variant="contained"
+                color="primary"
+                onClick={handleAddFullCourseToCart}
+              >
+                Add Full Course to Cart
+              </Button>
+            </Box>
+          </>
+        )}
+
         <Button onClick={onClose} color="inherit">
           Cancel
         </Button>

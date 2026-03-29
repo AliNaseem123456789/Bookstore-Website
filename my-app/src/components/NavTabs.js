@@ -80,7 +80,7 @@ const NavTabs = React.memo(function NavTabs() {
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: "center", p: 2 }}>
       <Typography variant="h6" sx={{ my: 2, fontWeight: "bold" }}>
-        BOOK STORE
+        Al-Sehar
       </Typography>
       <Divider />
       <List>
@@ -143,7 +143,7 @@ const NavTabs = React.memo(function NavTabs() {
             component="div"
             sx={{ fontWeight: "bold", display: { xs: "none", sm: "block" } }}
           >
-            STORE
+            Al-Sehar Bookstore
           </Typography>
 
           {/* Desktop Navigation */}

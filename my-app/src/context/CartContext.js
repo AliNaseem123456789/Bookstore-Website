@@ -8,7 +8,13 @@ export function CartProvider({ children }) {
 
   useEffect(() => {
     const storedCart = localStorage.getItem("cart");
-    if (storedCart) setCart(JSON.parse(storedCart));
+    if (storedCart) {
+      try {
+        setCart(JSON.parse(storedCart));
+      } catch (e) {
+        setCart([]);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -16,15 +22,15 @@ export function CartProvider({ children }) {
   }, [cart]);
 
   function addToCart(course) {
-    setCart((prev) => {
-      const exists = prev.find((c) => c.class_grade === course.class_grade);
-      if (exists) return prev; // avoid duplicates
-      return [...prev, course];
-    });
+    // Generate a unique ID for this specific cart entry
+    const cartItemId = `${course.class_grade}-${Date.now()}`;
+
+    setCart((prev) => [...prev, { ...course, cartItemId }]);
   }
 
-  function removeFromCart(classGrade) {
-    setCart((prev) => prev.filter((c) => c.class_grade !== classGrade));
+  function removeFromCart(cartItemId) {
+    // Filter by the unique ID, not the class grade
+    setCart((prev) => prev.filter((c) => c.cartItemId !== cartItemId));
   }
 
   function clearCart() {
@@ -32,7 +38,9 @@ export function CartProvider({ children }) {
   }
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart }}>
+    <CartContext.Provider
+      value={{ cart, addToCart, removeFromCart, clearCart }}
+    >
       {children}
     </CartContext.Provider>
   );
