@@ -36,7 +36,6 @@ export default function CourseCurriculumDialog({
   const [selectedBooks, setSelectedBooks] = React.useState([]);
   const [courseDefaults, setCourseDefaults] = React.useState([]);
   const [classMap, setClassMap] = React.useState([]);
-
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
   const router = useRouter();
@@ -52,22 +51,18 @@ export default function CourseCurriculumDialog({
           .select("book_id")
           .eq("class_grade", selectedClass),
       ]);
-
       if (defRes.data) setCourseDefaults(defRes.data);
       if (mapRes.data) setClassMap(mapRes.data.map((m) => m.book_id));
     }
     if (open && !isCopiesOnly) fetchData();
   }, [open, selectedClass, isCopiesOnly]);
-
   const displayItems = React.useMemo(() => {
     if (isCopiesOnly) return books.filter((b) => b.Type === "Copy");
     return books.filter((b) => classMap.includes(b.id));
   }, [books, classMap, isCopiesOnly]);
-
   const title = isCopiesOnly
     ? "All Copies Inventory"
     : `Class ${selectedClass} - Curriculum`;
-
   const getDefaultQty = React.useCallback(
     (item) => {
       if (isCopiesOnly) return 0;
@@ -79,7 +74,6 @@ export default function CourseCurriculumDialog({
     },
     [courseDefaults, isCopiesOnly],
   );
-
   const fullCourseData = React.useMemo(() => {
     const items = displayItems.map((b) => ({
       id: b.id,
@@ -93,16 +87,12 @@ export default function CourseCurriculumDialog({
     );
     return { items, total };
   }, [displayItems, getDefaultQty]);
-
   const currentSelectionTotal = React.useMemo(() => {
     return selectedBooks.reduce((sum, selected) => {
       const book = books.find((b) => b.id === selected.id);
       return sum + (book ? Number(book.price) * selected.qty : 0);
     }, 0);
   }, [selectedBooks, books]);
-
-  // --- Bulk Selection Handlers ---
-
   const handleBulkSelect = (type, action) => {
     const itemsOfType = displayItems.filter(
       (b) => b.Type === type && b.quantity > 0,
@@ -124,7 +114,6 @@ export default function CourseCurriculumDialog({
       );
     }
   };
-
   const toggleBookSelection = (bookId) => {
     setSelectedBooks((prev) => {
       const exists = prev.find((i) => i.id === bookId);
@@ -134,7 +123,6 @@ export default function CourseCurriculumDialog({
       return [...prev, { id: bookId, qty: startQty }];
     });
   };
-
   const updateItemQty = (bookId, delta, stock) => {
     setSelectedBooks((prev) =>
       prev.map((item) =>
@@ -144,31 +132,32 @@ export default function CourseCurriculumDialog({
       ),
     );
   };
-
-  // --- Purchase Handlers ---
-
   const handleBuyCourse = async () => {
     if (!buyerName.trim()) return alert("Enter buyer name.");
     const finalCost = Math.max(0, fullCourseData.total - discount);
     const transactionId = crypto.randomUUID();
+
     const { data, error: saleError } = await supabase
       .from("course_sales")
       .insert({
         transaction_id: transactionId,
+        is_full_course: true,
         buyer_name: buyerName,
         class_grade: isCopiesOnly ? "Copies" : selectedClass,
         no_of_books: fullCourseData.items.reduce((a, b) => a + b.qty, 0),
         total_cost: fullCourseData.total,
         cost_paid: finalCost,
         discount_applied: discount,
-        books_sold: fullCourseData.items,
+        // CHANGE: Map qty to quantity so the Receipt component recognizes it
+        books_sold: fullCourseData.items.map((item) => ({
+          ...item,
+          quantity: item.qty,
+        })),
         date: new Date(),
         sold_by_name: seller?.email || "Unknown",
       })
       .select();
-
     if (saleError) return alert("Error recording sale: " + saleError.message);
-
     for (const item of fullCourseData.items) {
       const currentInInventory = books.find((b) => b.id === item.id);
       await supabase
@@ -176,13 +165,11 @@ export default function CourseCurriculumDialog({
         .update({ quantity: currentInInventory.quantity - item.qty })
         .eq("id", item.id);
     }
-
     await queryClient.invalidateQueries({ queryKey: ["books"] });
     alert(`Purchase successful for PKR ${finalCost}`);
     router.push(`/receipt/${transactionId}`);
     onClose();
   };
-
   const handleAddFullCourseToCart = () => {
     addToCart({
       class_grade: isCopiesOnly ? "Copies" : selectedClass,
@@ -197,18 +184,14 @@ export default function CourseCurriculumDialog({
     alert(`Added to cart.`);
     onClose();
   };
-
   const handleBuySelected = async () => {
     if (!buyerName.trim() || selectedBooks.length === 0)
       return alert("Enter name and select items.");
-
     const finalCost = Math.max(0, currentSelectionTotal - discount);
-
-    // Generate a unique ID to group this purchase for the receipt page
     const transactionId = crypto.randomUUID();
-
     const { error: saleError } = await supabase.from("course_sales").insert({
-      transaction_id: transactionId, // Link this sale to the receipt
+      transaction_id: transactionId,
+      is_full_course: false,
       buyer_name: buyerName,
       class_grade: isCopiesOnly ? "Copies" : selectedClass,
       no_of_books: selectedBooks.reduce((a, b) => a + b.qty, 0),
@@ -219,16 +202,13 @@ export default function CourseCurriculumDialog({
         const bookData = books.find((b) => b.id === s.id);
         return {
           ...bookData,
-          quantity: s.qty, // Using 'quantity' to match Receipt component logic
+          quantity: s.qty,
         };
       }),
       date: new Date(),
       sold_by_name: seller?.email || "Unknown",
     });
-
     if (saleError) return alert("Error: " + saleError.message);
-
-    // Update Inventory
     for (const s of selectedBooks) {
       const currentInInventory = books.find((b) => b.id === s.id);
       if (currentInInventory) {
@@ -238,15 +218,10 @@ export default function CourseCurriculumDialog({
           .eq("id", s.id);
       }
     }
-
-    // Refresh data and redirect
     await queryClient.invalidateQueries({ queryKey: ["books"] });
-
-    // Redirect to the receipt print page
     router.push(`/receipt/${transactionId}`);
     onClose();
   };
-
   const handleAddSelectedToCart = () => {
     if (selectedBooks.length === 0) return alert("Select items first.");
     addToCart({
@@ -265,7 +240,6 @@ export default function CourseCurriculumDialog({
     alert("Added to cart.");
     onClose();
   };
-
   const renderItemList = (type) => {
     const filtered = displayItems.filter((b) => b.Type === type);
     if (filtered.length === 0) return null;
@@ -360,7 +334,6 @@ export default function CourseCurriculumDialog({
       </Box>
     );
   };
-
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle sx={{ fontWeight: "bold" }}>{title}</DialogTitle>
@@ -391,7 +364,6 @@ export default function CourseCurriculumDialog({
             />
           </Grid>
         </Grid>
-
         <Box
           sx={{
             p: 2,
@@ -417,11 +389,9 @@ export default function CourseCurriculumDialog({
             )}
           </Typography>
         </Box>
-
         {!isCopiesOnly && renderItemList("Book")}
         {renderItemList("Copy")}
       </DialogContent>
-
       <DialogActions sx={{ p: 3, flexDirection: "column", gap: 1.5 }}>
         <Box display="flex" gap={2} width="100%">
           <Button

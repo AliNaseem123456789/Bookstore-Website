@@ -22,7 +22,6 @@ export default function ReceiptPage() {
   const handlePrint = useReactToPrint({
     contentRef: receiptRef,
   });
-
   useEffect(() => {
     async function fetchTransaction() {
       // Fetching all records associated with this transaction ID
@@ -45,11 +44,14 @@ export default function ReceiptPage() {
         date: new Date(firstRecord.date).toLocaleString(),
         seller: firstRecord.sold_by_name,
         cart: data.map((item) => ({
-          display_name: `Class ${item.class_grade}`,
-          // Ensure this contains the array of books actually saved during checkout
+          display_name: item.class_grade.startsWith("Class")
+            ? item.class_grade
+            : `Class ${item.class_grade}`,
           books_sold: item.books_sold,
           total_cost: item.total_cost,
           discount_amount: item.discount_applied,
+          // THIS IS THE KEY FIX: Pass the flag from the DB to the component
+          is_full_course: item.is_full_course,
         })),
         total: data.reduce((sum, item) => sum + Number(item.cost_paid), 0),
       };

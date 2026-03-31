@@ -91,6 +91,7 @@ export default function CartPage() {
             books_sold: item.books,
             date: new Date(),
             sold_by_name: seller?.email || "Unknown",
+            is_full_course: !!item.is_full_course,
           });
 
         if (saleError) throw saleError;

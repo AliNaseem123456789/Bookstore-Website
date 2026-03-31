@@ -1,4 +1,3 @@
-// components/Receipt.js
 import React, { forwardRef } from "react";
 import { Box, Typography, Divider } from "@mui/material";
 
@@ -11,7 +10,7 @@ export const Receipt = forwardRef(
           p: 4,
           bgcolor: "white",
           color: "black",
-          fontFamily: "'Courier New', Courier, monospace", // Monospace gives it a "Receipt" feel
+          fontFamily: "'Courier New', Courier, monospace",
           maxWidth: "500px",
           margin: "0 auto",
           border: "1px solid #eee",
@@ -52,57 +51,68 @@ export const Receipt = forwardRef(
         <Box>
           {cart.map((item, i) => (
             <Box key={i} sx={{ mb: 2 }}>
-              {/* Course Header */}
-              <Typography variant="body2" fontWeight="bold">
-                {item.display_name.toUpperCase()}
-              </Typography>
+              {/* Course Header & Price Summary */}
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="body2" fontWeight="bold">
+                  {item.display_name.toUpperCase()}
+                </Typography>
+                {/* Only show price here if it's a full course to keep header clean */}
+                {item.is_full_course && (
+                  <Typography variant="body2" fontWeight="bold">
+                    {Number(item.total_cost || item.price).toLocaleString()}
+                  </Typography>
+                )}
+              </Box>
 
-              {/* Individual Books */}
-              {item.books_sold &&
-                item.books_sold.map((book, bIdx) => {
-                  const isSold = book.quantity > 0;
-                  const unitPrice = Number(book.price) || 0;
-                  const lineTotal = unitPrice * (book.quantity || 0);
+              {/* Individual Books: Only Render if NOT a Full Course */}
+              {!item.is_full_course && item.books_sold && (
+                <Box sx={{ mt: 1 }}>
+                  {item.books_sold.map((book, bIdx) => {
+                    const isSold = book.quantity > 0;
+                    const unitPrice = Number(book.price) || 0;
+                    const lineTotal = unitPrice * (book.quantity || 0);
 
-                  return (
-                    <Box
-                      key={bIdx}
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        pl: 1,
-                        mt: 0.5,
-                        opacity: isSold ? 1 : 0.4,
-                      }}
-                    >
-                      <Box sx={{ flex: 1 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            textDecoration: isSold ? "none" : "line-through",
-                          }}
-                        >
-                          {book.name}
-                        </Typography>
-                        {isSold && (
+                    return (
+                      <Box
+                        key={bIdx}
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          pl: 1,
+                          mt: 0.5,
+                          opacity: isSold ? 1 : 0.4,
+                        }}
+                      >
+                        <Box sx={{ flex: 1 }}>
                           <Typography
                             variant="caption"
-                            display="block"
-                            sx={{ fontSize: "0.65rem", color: "#666" }}
+                            sx={{
+                              textDecoration: isSold ? "none" : "line-through",
+                            }}
                           >
-                            {book.quantity} x {unitPrice.toLocaleString()}
+                            - {book.name}
                           </Typography>
-                        )}
+                          {isSold && (
+                            <Typography
+                              variant="caption"
+                              display="block"
+                              sx={{ fontSize: "0.65rem", color: "#666" }}
+                            >
+                              {book.quantity} x {unitPrice.toLocaleString()}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          sx={{ alignSelf: "flex-end" }}
+                        >
+                          {isSold ? lineTotal.toLocaleString() : "SKIPPED"}
+                        </Typography>
                       </Box>
-                      <Typography
-                        variant="caption"
-                        sx={{ alignSelf: "flex-end" }}
-                      >
-                        {isSold ? lineTotal.toLocaleString() : "SKIPPED"}
-                      </Typography>
-                    </Box>
-                  );
-                })}
+                    );
+                  })}
+                </Box>
+              )}
 
               {/* Course Discount (if any) */}
               {Number(item.discount_amount) > 0 && (
@@ -110,7 +120,7 @@ export const Receipt = forwardRef(
                   display="flex"
                   justifyContent="space-between"
                   pl={1}
-                  sx={{ color: "red" }}
+                  sx={{ color: "red", mt: 0.5 }}
                 >
                   <Typography variant="caption">COURSE DISCOUNT</Typography>
                   <Typography variant="caption">
@@ -128,7 +138,7 @@ export const Receipt = forwardRef(
         <Box sx={{ px: 1 }}>
           <Box display="flex" justifyContent="space-between" mb={0.5}>
             <Typography variant="body2" fontWeight="bold">
-              TOTAL AMOUNT
+              NET PAYABLE
             </Typography>
             <Typography variant="body2" fontWeight="bold">
               PKR {total?.toLocaleString()}
