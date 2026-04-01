@@ -16,9 +16,8 @@ import {
   Box,
   Skeleton,
   Chip,
-  Button,
   Divider,
-  List, // Added missing import
+  List,
 } from "@mui/material";
 import {
   KeyboardArrowDown,
@@ -65,7 +64,9 @@ export default function CourseSalesPage() {
     const groups = {};
 
     rawData.forEach((item) => {
-      const key = item.transaction_id || item.id;
+      // Use transaction_id to group multiple rows from one checkout
+      // Fallback to id if transaction_id is missing for some reason
+      const key = item.transaction_id || `single-${item.id}`;
 
       if (!groups[key]) {
         groups[key] = {
@@ -84,6 +85,7 @@ export default function CourseSalesPage() {
           items_count: 1,
         };
       } else {
+        // If the key already exists, this is a "Multiple" course transaction
         groups[key].course_details.push({
           class_grade: item.class_grade,
           books: item.books_sold || [],
@@ -102,11 +104,12 @@ export default function CourseSalesPage() {
 
   const downloadPDF = (sale) => {
     const doc = new jsPDF();
-
     doc.setFontSize(18);
     doc.text("SALES RECEIPT", 14, 20);
     doc.setFontSize(10);
-    doc.text(`Transaction ID: ${sale.transaction_id || sale.id}`, 14, 30);
+
+    // Use the ID of the first item in the group for the receipt number
+    doc.text(`Receipt No: ${sale.id}`, 14, 30);
     doc.text(
       `Date: ${format(new Date(sale.date), "dd MMMM yyyy, hh:mm a")}`,
       14,
@@ -119,13 +122,13 @@ export default function CourseSalesPage() {
     sale.course_details.forEach((course) => {
       tableRows.push([
         {
-          content: `Class ${course.class_grade}`,
+          content: `Class: ${course.class_grade}`,
           colSpan: 2,
           styles: { fillColor: [240, 240, 240], fontStyle: "bold" },
         },
       ]);
       course.books.forEach((book) => {
-        tableRows.push([book.name, `PKR ${book.price}`]);
+        tableRows.push([book.name, `PKR ${book.price.toLocaleString()}`]);
       });
     });
 
@@ -247,7 +250,9 @@ export default function CourseSalesPage() {
                           {sale.paid_sum.toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          {format(new Date(sale.date), "dd MMM, hh:mm a")}
+                          {sale.date
+                            ? format(new Date(sale.date), "dd MMM, hh:mm a")
+                            : "—"}
                         </TableCell>
                         <TableCell align="center">
                           <IconButton
@@ -318,7 +323,6 @@ export default function CourseSalesPage() {
                                   </List>
                                 </Box>
                               ))}
-
                               <Divider sx={{ my: 1 }} />
                               <Box
                                 sx={{
@@ -347,11 +351,6 @@ export default function CourseSalesPage() {
                 })}
           </TableBody>
         </Table>
-        {isFetchingNextPage && (
-          <Box p={2} textAlign="center">
-            <CircularProgress size={24} />
-          </Box>
-        )}
       </Paper>
     </Container>
   );

@@ -29,7 +29,6 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
 
-  // Fetch current seller info
   useEffect(() => {
     fetch("/api/me")
       .then((res) => res.json())
@@ -37,7 +36,6 @@ export default function CartPage() {
       .catch((err) => console.error("Error fetching seller:", err));
   }, []);
 
-  // Calculate Subtotal (sum of items after their specific discounts)
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
       const itemPrice =
@@ -59,44 +57,47 @@ export default function CartPage() {
     }
 
     setIsProcessing(true);
-    const transactionId = crypto.randomUUID();
+    // This UUID remains invisible to the user but links the rows in the database
+    const hiddenLink = crypto.randomUUID();
 
     try {
-      for (const item of cart) {
+      // 1. Prepare all sales records
+      const salesData = cart.map((item) => {
         const itemOriginalTotal = Number(item.total_cost);
         const itemSpecificDiscount = Number(item.discount_amount) || 0;
         const itemSubtotal = itemOriginalTotal - itemSpecificDiscount;
-
-        // Calculate how much of the global discount applies to this specific cart item
         const discountRatio = subtotal > 0 ? itemSubtotal / subtotal : 0;
         const globalDiscountShare = globalDiscount * discountRatio;
-
         const finalDiscountApplied = itemSpecificDiscount + globalDiscountShare;
-        const finalCostPaid = itemOriginalTotal - finalDiscountApplied;
 
-        // 1. Record Sale in Supabase
-        const { error: saleError } = await supabase
-          .from("course_sales")
-          .insert({
-            transaction_id: transactionId,
-            buyer_name: buyerName,
-            class_grade: item.class_grade,
-            no_of_books: item.books.reduce(
-              (sum, b) => sum + (b.quantity || 1),
-              0,
-            ),
-            total_cost: itemOriginalTotal,
-            cost_paid: finalCostPaid,
-            discount_applied: finalDiscountApplied,
-            books_sold: item.books,
-            date: new Date(),
-            sold_by_name: seller?.email || "Unknown",
-            is_full_course: !!item.is_full_course,
-          });
+        return {
+          transaction_id: hiddenLink, // The invisible linker
+          buyer_name: buyerName,
+          class_grade: item.class_grade,
+          no_of_books: item.books.reduce(
+            (sum, b) => sum + (b.quantity || 1),
+            0,
+          ),
+          total_cost: itemOriginalTotal,
+          cost_paid: itemOriginalTotal - finalDiscountApplied,
+          discount_applied: finalDiscountApplied,
+          books_sold: item.books,
+          date: new Date(),
+          sold_by_name: seller?.email || "Unknown",
+          is_full_course: !!item.is_full_course,
+        };
+      });
 
-        if (saleError) throw saleError;
+      // 2. Insert everything at once and get back the numeric IDs
+      const { data, error: saleError } = await supabase
+        .from("course_sales")
+        .insert(salesData)
+        .select(); // This fetches the created IDs
 
-        // 2. Update Inventory for each book
+      if (saleError) throw saleError;
+
+      // 3. Update Inventory
+      for (const item of cart) {
         for (const book of item.books) {
           const { data: latestBook } = await supabase
             .from("books")
@@ -104,9 +105,8 @@ export default function CartPage() {
             .eq("id", book.id)
             .single();
 
-          const qtyToSubtract = book.quantity || 1;
-          const newQuantity = (latestBook?.quantity || 0) - qtyToSubtract;
-
+          const newQuantity =
+            (latestBook?.quantity || 0) - (book.quantity || 1);
           await supabase
             .from("books")
             .update({ quantity: newQuantity })
@@ -114,24 +114,25 @@ export default function CartPage() {
         }
       }
 
-      // 3. Clear local cart state
       clearCart();
 
-      // 4. Redirect to the separate receipt page
-      router.push(`/receipt/${transactionId}`);
+      // 4. Redirect using the numeric ID (e.g., 181)
+      if (data && data.length > 0) {
+        router.push(`/receipt/${data[0].id}`);
+      }
     } catch (err) {
       console.error(err);
-      alert("Error during checkout: " + err.message);
-      setIsProcessing(false); // Only stop loading if there was an error
+      alert("Error: " + err.message);
+      setIsProcessing(false);
     }
   }
 
+  // ... (Keep the same return UI as your working case) ...
   return (
     <Container maxWidth="md" sx={{ mt: 6, mb: 10 }}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
         Cart Checkout
       </Typography>
-
       <Box sx={{ display: "flex", gap: 2, mb: 4, mt: 2 }}>
         <TextField
           label="Buyer Name"
@@ -180,7 +181,6 @@ export default function CartPage() {
               const itemDisc = Number(item.discount_amount) || 0;
               const itemOrig = Number(item.total_cost);
               const isExpanded = expandedId === item.cartItemId;
-
               return (
                 <Box key={item.cartItemId}>
                   <ListItem
@@ -223,7 +223,6 @@ export default function CartPage() {
                       }
                     />
                   </ListItem>
-
                   <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                     <Box sx={{ pl: 4, pr: 2, pb: 2, bgcolor: "#fafafa" }}>
                       <Typography
@@ -257,8 +256,6 @@ export default function CartPage() {
                 </Box>
               );
             })}
-
-            {/* Price Summary Section */}
             <Box sx={{ p: 3, bgcolor: "action.hover" }}>
               <Box display="flex" justifyContent="space-between" mb={1}>
                 <Typography>Subtotal</Typography>
@@ -283,7 +280,6 @@ export default function CartPage() {
               </Box>
             </Box>
           </List>
-
           <Box mt={4} display="flex" justifyContent="flex-end">
             <Button
               variant="contained"
