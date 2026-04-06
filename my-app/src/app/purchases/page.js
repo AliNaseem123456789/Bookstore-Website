@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import supabase from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import {
   Container,
   Typography,
