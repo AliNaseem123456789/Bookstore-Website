@@ -2,7 +2,7 @@ import React, { forwardRef } from "react";
 import { Box, Typography, Divider } from "@mui/material";
 
 export const Receipt = forwardRef(
-  ({ cart, buyerName, total, transactionId, seller }, ref) => {
+  ({ cart, buyerName, summary, transactionId, seller }, ref) => {
     return (
       <Box
         ref={ref}
@@ -136,17 +136,82 @@ export const Receipt = forwardRef(
 
         {/* Totals Section */}
         <Box sx={{ px: 1 }}>
+          {/* Total before discount */}
+          <Box display="flex" justifyContent="space-between" mb={0.5}>
+            <Typography variant="caption">GROSS TOTAL</Typography>
+            <Typography variant="caption">
+              PKR {summary?.gross?.toLocaleString()}
+            </Typography>
+          </Box>
+
+          {/* Total Discount */}
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            mb={0.5}
+            sx={{ color: "red" }}
+          >
+            <Typography variant="caption">TOTAL DISCOUNT</Typography>
+            <Typography variant="caption">
+              - {summary?.discount?.toLocaleString()}
+            </Typography>
+          </Box>
+
+          <Divider sx={{ borderStyle: "dotted", my: 1 }} />
+
+          {/* Net Payable */}
           <Box display="flex" justifyContent="space-between" mb={0.5}>
             <Typography variant="body2" fontWeight="bold">
               NET PAYABLE
             </Typography>
             <Typography variant="body2" fontWeight="bold">
-              PKR {total?.toLocaleString()}
+              PKR {summary?.payable?.toLocaleString()}
             </Typography>
           </Box>
-          <Box display="flex" justifyContent="space-between">
-            <Typography variant="caption">PAYMENT MODE</Typography>
-            <Typography variant="caption">CASH</Typography>
+
+          {/* Amount Actually Paid */}
+          <Box display="flex" justifyContent="space-between" mb={0.5}>
+            <Typography
+              variant="body2"
+              fontWeight="bold"
+              sx={{ color: "green" }}
+            >
+              AMOUNT PAID
+            </Typography>
+            <Typography
+              variant="body2"
+              fontWeight="bold"
+              sx={{ color: "green" }}
+            >
+              PKR {summary?.paid?.toLocaleString()}
+            </Typography>
+          </Box>
+
+          {/* Balance Due (Only show if there is a debt) */}
+          {summary?.balance > 0 && (
+            <Box display="flex" justifyContent="space-between" mb={0.5}>
+              <Typography
+                variant="body2"
+                fontWeight="bold"
+                sx={{ color: "red" }}
+              >
+                BALANCE DUE
+              </Typography>
+              <Typography
+                variant="body2"
+                fontWeight="bold"
+                sx={{ color: "red" }}
+              >
+                PKR {summary?.balance?.toLocaleString()}
+              </Typography>
+            </Box>
+          )}
+
+          <Box display="flex" justifyContent="space-between" mt={1}>
+            <Typography variant="caption">STATUS</Typography>
+            <Typography variant="caption" fontWeight="bold">
+              {summary?.balance > 0 ? "CREDIT / PENDING" : "PAID"}
+            </Typography>
           </Box>
         </Box>
 

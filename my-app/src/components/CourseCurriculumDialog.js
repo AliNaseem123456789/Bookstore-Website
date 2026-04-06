@@ -19,9 +19,9 @@ import {
   Button,
 } from "@mui/material";
 import { Add, Remove, DoneAll, RemoveDone } from "@mui/icons-material";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCart } from "@/context/CartContext";
+import { useCart } from "../context/CartContext";
 import { useRouter } from "next/navigation";
 export default function CourseCurriculumDialog({
   open,
@@ -38,7 +38,9 @@ export default function CourseCurriculumDialog({
   const [classMap, setClassMap] = React.useState([]);
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
+  const [amountReceived, setAmountReceived] = React.useState(""); // New state
   const router = useRouter();
+
   React.useEffect(() => {
     async function fetchData() {
       const [defRes, mapRes] = await Promise.all([
@@ -132,9 +134,34 @@ export default function CourseCurriculumDialog({
       ),
     );
   };
+  // 1. Calculate the total based on whether items are selected or the full course is being viewed
+  const baseTotal =
+    selectedBooks.length > 0
+      ? currentSelectionTotal
+      : isCopiesOnly
+        ? 0
+        : fullCourseData.total;
+
+  // 2. Define totalAfterDiscount so it's accessible everywhere
+  const totalAfterDiscount = Math.max(0, baseTotal - discount);
+  const displayPaidAmount =
+    amountReceived !== "" ? Number(amountReceived) : totalAfterDiscount;
+  // 3. Helper to handle the actual cost paid (credit logic)
+  const getPaymentDetails = (total) => {
+    const actualPaid = amountReceived === "" ? total : Number(amountReceived);
+    const balanceDue = total - actualPaid;
+    return {
+      actualPaid,
+      balanceDue,
+      status: balanceDue > 0 ? "pending" : "paid",
+    };
+  };
   const handleBuyCourse = async () => {
     if (!buyerName.trim()) return alert("Enter buyer name.");
-    const finalCost = Math.max(0, fullCourseData.total - discount);
+
+    // Use the helper to get actual paid, balance, and status
+    const { actualPaid, balanceDue, status } =
+      getPaymentDetails(totalAfterDiscount);
     const internalTransactionId = crypto.randomUUID();
 
     const { data, error: saleError } = await supabase
@@ -146,8 +173,10 @@ export default function CourseCurriculumDialog({
         class_grade: isCopiesOnly ? "Copies" : selectedClass,
         no_of_books: fullCourseData.items.reduce((a, b) => a + b.qty, 0),
         total_cost: fullCourseData.total,
-        cost_paid: finalCost,
+        cost_paid: actualPaid, // Records amountReceived or totalAfterDiscount
         discount_applied: discount,
+        payment_status: status, // "pending" if balanceDue > 0
+        balance_due: balanceDue, // Tracks the remaining debt
         books_sold: fullCourseData.items.map((item) => ({
           ...item,
           quantity: item.qty,
@@ -155,11 +184,11 @@ export default function CourseCurriculumDialog({
         date: new Date(),
         sold_by_name: seller?.email || "Unknown",
       })
-      .select(); // Returns the inserted row including the numeric 'id'
+      .select();
 
     if (saleError) return alert("Error recording sale: " + saleError.message);
 
-    // Update Inventory
+    // Inventory update loop...
     for (const item of fullCourseData.items) {
       const currentInInventory = books.find((b) => b.id === item.id);
       if (currentInInventory) {
@@ -171,11 +200,7 @@ export default function CourseCurriculumDialog({
     }
 
     await queryClient.invalidateQueries({ queryKey: ["books"] });
-
-    // Use the numeric ID from the select() call for the receipt route
-    if (data && data[0]) {
-      router.push(`/receipt/${data[0].id}`);
-    }
+    if (data && data[0]) router.push(`/receipt/${data[0].id}`);
     onClose();
   };
   const handleAddFullCourseToCart = () => {
@@ -197,7 +222,14 @@ export default function CourseCurriculumDialog({
     if (!buyerName.trim() || selectedBooks.length === 0)
       return alert("Enter name and select items.");
 
-    const finalCost = Math.max(0, currentSelectionTotal - discount);
+    const totalAfterDiscount = Math.max(0, currentSelectionTotal - discount);
+
+    // Logic: Use amountReceived if entered, otherwise assume full payment
+    const actualPaid =
+      amountReceived === "" ? totalAfterDiscount : Number(amountReceived);
+    const balanceDue = totalAfterDiscount - actualPaid;
+    const status = balanceDue > 0 ? "pending" : "paid";
+
     const internalTransactionId = crypto.randomUUID();
 
     const { data, error: saleError } = await supabase
@@ -209,8 +241,10 @@ export default function CourseCurriculumDialog({
         class_grade: isCopiesOnly ? "Copies" : selectedClass,
         no_of_books: selectedBooks.reduce((a, b) => a + b.qty, 0),
         total_cost: currentSelectionTotal,
-        cost_paid: finalCost,
+        cost_paid: actualPaid,
         discount_applied: discount,
+        payment_status: status,
+        balance_due: balanceDue,
         books_sold: selectedBooks.map((s) => {
           const bookData = books.find((b) => b.id === s.id);
           return { ...bookData, quantity: s.qty };
@@ -222,7 +256,7 @@ export default function CourseCurriculumDialog({
 
     if (saleError) return alert("Error: " + saleError.message);
 
-    // Update Inventory
+    // Inventory update loop remains the same...
     for (const s of selectedBooks) {
       const currentInInventory = books.find((b) => b.id === s.id);
       if (currentInInventory) {
@@ -234,10 +268,7 @@ export default function CourseCurriculumDialog({
     }
 
     await queryClient.invalidateQueries({ queryKey: ["books"] });
-
-    if (data && data[0]) {
-      router.push(`/receipt/${data[0].id}`);
-    }
+    if (data?.[0]) router.push(`/receipt/${data[0].id}`);
     onClose();
   };
   const handleAddSelectedToCart = () => {
@@ -366,6 +397,22 @@ export default function CourseCurriculumDialog({
               size="small"
             />
           </Grid>
+
+          <Grid item xs={12} md={4}>
+            <TextField
+              label="Amount Received"
+              type="number"
+              value={amountReceived}
+              onChange={(e) => setAmountReceived(e.target.value)}
+              fullWidth
+              placeholder="Leave blank for full payment"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">PKR</InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
           <Grid item xs={12} md={4}>
             <TextField
               label="Discount"
@@ -406,6 +453,28 @@ export default function CourseCurriculumDialog({
                   : fullCourseData.total) - discount,
             )}
           </Typography>
+          <Typography variant="h6" color="primary" fontWeight="bold">
+            Total Payable: PKR {totalAfterDiscount}
+          </Typography>
+
+          {/* Add this block */}
+          {amountReceived !== "" &&
+            Number(amountReceived) < totalAfterDiscount && (
+              <Box
+                sx={{
+                  mt: 1,
+                  p: 1,
+                  bgcolor: "#fff4e5",
+                  border: "1px solid #ffa726",
+                  borderRadius: 1,
+                }}
+              >
+                <Typography variant="body2" color="warning.main">
+                  <strong>Credit Sale:</strong> Buyer will owe PKR{" "}
+                  {totalAfterDiscount - Number(amountReceived)}
+                </Typography>
+              </Box>
+            )}
         </Box>
         {!isCopiesOnly && renderItemList("Book")}
         {renderItemList("Copy")}
@@ -442,7 +511,8 @@ export default function CourseCurriculumDialog({
                 color="primary"
                 onClick={handleBuyCourse}
               >
-                Buy Full Course (PKR {fullCourseData.total})
+                {/* The label now changes based on input */}
+                Buy Full Course (PKR {displayPaidAmount})
               </Button>
               <Button
                 fullWidth

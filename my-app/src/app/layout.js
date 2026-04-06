@@ -1,7 +1,7 @@
 // src/app/layout.js
-import ClientLayout from "@/components/ClientLayout"; // ✅ fixed path
-import Providers from "@/app/providers"; 
-import { CartProvider } from "@/context/CartContext";
+import ClientLayout from "../components/ClientLayout"; // ✅ fixed path
+import Providers from "../app/providers";
+import { CartProvider } from "../context/CartContext";
 
 export const metadata = {
   title: "Bookstore",

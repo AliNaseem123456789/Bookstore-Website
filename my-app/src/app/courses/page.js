@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import {
   Container,
   Typography,
@@ -13,7 +13,7 @@ import {
   Paper,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import CourseCurriculumDialog from "@/components/CourseCurriculumDialog";
+import CourseCurriculumDialog from "../../components/CourseCurriculumDialog";
 import { MenuBook, StickyNote2 } from "@mui/icons-material";
 
 const gradeOrder = [

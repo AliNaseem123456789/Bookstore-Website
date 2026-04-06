@@ -68,6 +68,7 @@ const NavTabs = React.memo(function NavTabs() {
       { label: "Books", value: "/" },
       { label: "Courses", value: "/courses" },
       { label: "Sales", value: "/coursesales" },
+      { label: "Pending", value: "/pending_payment" },
     ],
     [],
   );

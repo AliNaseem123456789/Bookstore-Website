@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient";
 import {
   Container,
   Typography,
@@ -33,14 +33,18 @@ export default function UserManagementPage() {
   });
 
   // ✅ Fetch all users
-  const { data: users = [], isLoading, error } = useQuery({
+  const {
+    data: users = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("users")
         .select("id, name, email, role, created_at")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -53,7 +57,7 @@ export default function UserManagementPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
-      }).then(res => res.json());
+      }).then((res) => res.json());
 
       if (error) throw new Error(error);
       return data;
@@ -72,10 +76,7 @@ export default function UserManagementPage() {
   // ✅ Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId) => {
-      const { error } = await supabase
-        .from("users")
-        .delete()
-        .eq("id", userId);
+      const { error } = await supabase.from("users").delete().eq("id", userId);
 
       if (error) throw error;
     },
@@ -106,7 +107,12 @@ export default function UserManagementPage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
         <Typography variant="h4">User Management</Typography>
         <Button
           variant="contained"
@@ -121,11 +127,21 @@ export default function UserManagementPage() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell><strong>Name</strong></TableCell>
-              <TableCell><strong>Email</strong></TableCell>
-              <TableCell><strong>Role</strong></TableCell>
-              <TableCell><strong>Joined</strong></TableCell>
-              <TableCell><strong>Actions</strong></TableCell>
+              <TableCell>
+                <strong>Name</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Email</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Role</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Joined</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Actions</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -136,7 +152,8 @@ export default function UserManagementPage() {
                 <TableCell>
                   <Box
                     sx={{
-                      bgcolor: user.role === "admin" ? "primary.main" : "grey.300",
+                      bgcolor:
+                        user.role === "admin" ? "primary.main" : "grey.300",
                       color: user.role === "admin" ? "white" : "black",
                       px: 1,
                       py: 0.5,
@@ -167,7 +184,12 @@ export default function UserManagementPage() {
       </Paper>
 
       {/* Create User Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>Create New User</DialogTitle>
         <DialogContent>
           <TextField
@@ -191,7 +213,9 @@ export default function UserManagementPage() {
             fullWidth
             margin="normal"
             value={newUser.password}
-            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+            onChange={(e) =>
+              setNewUser({ ...newUser, password: e.target.value })
+            }
           />
         </DialogContent>
         <DialogActions>

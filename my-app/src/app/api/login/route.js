@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -23,30 +23,30 @@ export async function POST(req) {
 
   // ✅ UPDATED: Include role in JWT token
   const token = jwt.sign(
-    { 
-      id: user.id, 
-      email: user.email, 
-      role: user.role,  // 👈 Add role here
-      name: user.name   
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role, // 👈 Add role here
+      name: user.name,
     },
     process.env.JWT_SECRET || "SECRET_KEY",
-    { expiresIn: "1h" }
+    { expiresIn: "7d" },
   );
 
   // Set cookie
   const res = NextResponse.json({
     message: "Login successful",
-    user: { 
-      id: user.id, 
-      email: user.email, 
-      role: user.role,  // 👈 Also return role in response
-      name: user.name   
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role, // 👈 Also return role in response
+      name: user.name,
     },
   });
   res.cookies.set("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60, // 1 hour
+    maxAge: 60 * 60 * 24 * 7, // 1 hour
     path: "/",
   });
 

@@ -6,7 +6,7 @@ import { CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useServerInsertedHTML } from "next/navigation";
 import { useState } from "react";
-import NavTabs from "@/components/NavTabs";
+import NavTabs from "../components/NavTabs";
 
 // Create an Emotion cache for MUI
 function createEmotionCache() {
@@ -89,7 +89,6 @@ export default function ClientLayout({ children }) {
 //       />
 //     );
 //   });
-
 
 //   const theme = createTheme({
 //     palette: {

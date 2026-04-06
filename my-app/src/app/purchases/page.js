@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { supabase } from "@/lib/supabaseClient";
+import supabase from "../../lib/supabaseClient";
 import {
   Container,
   Typography,
@@ -20,13 +20,15 @@ export default function PurchasesPage() {
   const fetchPurchases = async () => {
     const { data, error } = await supabase
       .from("purchases")
-      .select(`
+      .select(
+        `
         id,
         buyer_name,
         amount_paid,
         date,
         books (name)  -- join to books table for book name
-      `)
+      `,
+      )
       .order("date", { ascending: false });
 
     if (error) throw new Error(error.message);
@@ -42,7 +44,7 @@ export default function PurchasesPage() {
     queryKey: ["purchases"],
     queryFn: fetchPurchases,
     staleTime: 1000 * 60 * 5, // cache fresh for 5 minutes
-    gcTime: 1000 * 60 * 30,   // keep in memory for 30 minutes
+    gcTime: 1000 * 60 * 30, // keep in memory for 30 minutes
   });
 
   if (isLoading) {
@@ -80,10 +82,18 @@ export default function PurchasesPage() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell><strong>Book</strong></TableCell>
-              <TableCell><strong>Buyer</strong></TableCell>
-              <TableCell align="right"><strong>Amount Paid (PKR)</strong></TableCell>
-              <TableCell><strong>Date</strong></TableCell>
+              <TableCell>
+                <strong>Book</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Buyer</strong>
+              </TableCell>
+              <TableCell align="right">
+                <strong>Amount Paid (PKR)</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Date</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

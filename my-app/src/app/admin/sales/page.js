@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient";
 import {
   Container,
   Typography,
@@ -24,8 +24,8 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
 
 // Internal Component Imports
-import { AnalyticsSummaryCards } from "@/components/AnalyticsSummaryCard";
-import { PerformanceTable } from "@/components/Performance";
+import { AnalyticsSummaryCards } from "../../../components/AnalyticsSummaryCard";
+import { PerformanceTable } from "../../../components/Performance";
 
 export default function SalesAnalyticsPage() {
   const [dateRange, setDateRange] = React.useState({

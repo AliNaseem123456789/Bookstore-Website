@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import {
   Container,
   Typography,
@@ -18,54 +18,109 @@ import {
   Chip,
   Divider,
   List,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
+import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import {
   KeyboardArrowDown,
   KeyboardArrowUp,
   Download,
+  Search,
 } from "@mui/icons-material";
 import { format } from "date-fns";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const PAGE_SIZE = 40;
-
-async function fetchSales({ pageParam = 0 }) {
-  const { data, error } = await supabase
+async function fetchSales({ pageParam = 0, filter = "all" }) {
+  let query = supabase
     .from("course_sales")
     .select(
-      "id, transaction_id, buyer_name, sold_by_name, class_grade, no_of_books, total_cost, cost_paid, discount_applied, date, books_sold",
-    )
+      "id, transaction_id, buyer_name, sold_by_name, class_grade, no_of_books, total_cost, cost_paid, discount_applied, date, books_sold, payment_status, balance_due",
+    );
+
+  // Apply Filters using the new columns
+  if (filter === "discounted") {
+    query = query.gt("discount_applied", 0);
+  } else if (filter === "pending") {
+    // MUCH safer and faster using the new column
+    query = query.eq("payment_status", "pending");
+  }
+
+  const { data, error } = await query
     .order("date", { ascending: false })
     .range(pageParam, pageParam + PAGE_SIZE - 1);
 
   if (error) throw new Error(error.message);
+
   return {
     data,
     nextPage: pageParam + PAGE_SIZE,
     hasMore: data.length === PAGE_SIZE,
   };
 }
+// Fetcher for searching (gets all matches at once)
+async function searchSales(name, filter) {
+  // Added filter param
+  if (!name) return [];
+  let query = supabase
+    .from("course_sales")
+    .select(
+      "id, transaction_id, buyer_name, sold_by_name, class_grade, no_of_books, total_cost, cost_paid, discount_applied, date, books_sold, payment_status",
+    )
+    .ilike("buyer_name", `%${name}%`);
+
+  // APPLY FILTER HERE TOO
+  if (filter === "discounted") {
+    query = query.gt("discount_applied", 0);
+  } else if (filter === "pending") {
+    query = query.eq("payment_status", "pending");
+  }
+
+  const { data, error } = await query.order("date", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data;
+}
 
 export default function CourseSalesPage() {
   const [openRows, setOpenRows] = React.useState({});
-
-  const { data, error, isLoading, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["course_sales"],
-    queryFn: fetchSales,
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [filter, setFilter] = React.useState("all");
+  // 1. Infinite Query for normal history
+  const {
+    data: infiniteData,
+    error: infiniteError,
+    isLoading: isInfiniteLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["course_sales", filter], // This triggers the refetch when filter changes
+    queryFn: ({ pageParam }) => fetchSales({ pageParam, filter }), // PASS FILTER HERE
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextPage : undefined,
+    enabled: searchQuery.trim() === "",
+  });
+  const { data: searchData, isLoading: isSearchLoading } = useQuery({
+    queryKey: ["course_sales_search", searchQuery, filter], // Add filter to key
+    queryFn: () => searchSales(searchQuery, filter), // Pass filter to fn
+    enabled: searchQuery.trim().length > 0,
   });
 
-  const groupedSales = React.useMemo(() => {
-    const rawData = data?.pages.flatMap((page) => page.data) ?? [];
+  // 3. Unified logic to group data regardless of source
+  const displaySales = React.useMemo(() => {
+    // Decide which source to use
+    const rawData =
+      searchQuery.trim().length > 0
+        ? (searchData ?? [])
+        : (infiniteData?.pages.flatMap((page) => page.data) ?? []);
+
     const groups = {};
 
     rawData.forEach((item) => {
-      // Use transaction_id to group multiple rows from one checkout
-      // Fallback to id if transaction_id is missing for some reason
       const key = item.transaction_id || `single-${item.id}`;
 
       if (!groups[key]) {
@@ -85,7 +140,6 @@ export default function CourseSalesPage() {
           items_count: 1,
         };
       } else {
-        // If the key already exists, this is a "Multiple" course transaction
         groups[key].course_details.push({
           class_grade: item.class_grade,
           books: item.books_sold || [],
@@ -100,15 +154,16 @@ export default function CourseSalesPage() {
     });
 
     return Object.values(groups);
-  }, [data]);
+  }, [infiniteData, searchData, searchQuery]);
+
+  const isLoading =
+    searchQuery.trim() !== "" ? isSearchLoading : isInfiniteLoading;
 
   const downloadPDF = (sale) => {
     const doc = new jsPDF();
     doc.setFontSize(18);
     doc.text("SALES RECEIPT", 14, 20);
     doc.setFontSize(10);
-
-    // Use the ID of the first item in the group for the receipt number
     doc.text(`Receipt No: ${sale.id}`, 14, 30);
     doc.text(
       `Date: ${format(new Date(sale.date), "dd MMMM yyyy, hh:mm a")}`,
@@ -166,16 +221,73 @@ export default function CourseSalesPage() {
   const toggleRow = (id) =>
     setOpenRows((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  if (error)
-    return <Typography color="error">Error: {error.message}</Typography>;
+  if (infiniteError)
+    return (
+      <Typography color="error">Error: {infiniteError.message}</Typography>
+    );
 
   return (
     <Container maxWidth="lg" sx={{ mt: 6, mb: 6 }}>
-      <Typography variant="h4" fontWeight="bold" gutterBottom>
-        Course Sales History
-      </Typography>
+      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        {/* Filter Select */}
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Filter By</InputLabel>
+          <Select
+            value={filter}
+            label="Filter By"
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <MenuItem value="all">All Sales</MenuItem>
+            <MenuItem value="discounted">Discounted</MenuItem>
+            <MenuItem value="pending">Pending Payment</MenuItem>
+          </Select>
+        </FormControl>
+        {/* Search Box */}
+        <TextField
+          placeholder="Search buyer..."
+          size="small"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: 250, bgcolor: "white" }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search color="action" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
+        <Typography variant="h4" fontWeight="bold">
+          Course Sales History
+        </Typography>
 
-      <Paper elevation={3} sx={{ mt: 3, overflow: "hidden" }}>
+        {/* SEARCH BOX */}
+        {/* <TextField
+          placeholder="Search by buyer name..."
+          size="small"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: 300, bgcolor: "white" }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search color="action" />
+              </InputAdornment>
+            ),
+          }}
+        /> */}
+      </Box>
+
+      <Paper elevation={3} sx={{ overflow: "hidden" }}>
         <Table>
           <TableHead sx={{ bgcolor: "#f5f5f5" }}>
             <TableRow>
@@ -201,156 +313,192 @@ export default function CourseSalesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={7}>
-                      <Skeleton height={60} />
-                    </TableCell>
-                  </TableRow>
-                ))
-              : groupedSales.map((sale) => {
-                  const isOpen = openRows[sale.id];
-                  return (
-                    <React.Fragment key={sale.id}>
-                      <TableRow hover>
-                        <TableCell>
-                          <IconButton
-                            size="small"
-                            onClick={() => toggleRow(sale.id)}
-                          >
-                            {isOpen ? (
-                              <KeyboardArrowUp />
-                            ) : (
-                              <KeyboardArrowDown />
-                            )}
-                          </IconButton>
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: "medium" }}>
-                          {sale.buyer_name}
-                        </TableCell>
-                        <TableCell>
-                          {sale.items_count > 1 ? (
-                            <Chip
-                              label="Multiple"
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          ) : (
-                            `Class ${sale.class_grade}`
-                          )}
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: "error.main" }}>
-                          {sale.discount_sum > 0
-                            ? `-${sale.discount_sum.toLocaleString()}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: "bold" }}>
-                          {sale.paid_sum.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {sale.date
-                            ? format(new Date(sale.date), "dd MMM, hh:mm a")
-                            : "—"}
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            color="primary"
-                            onClick={() => downloadPDF(sale)}
-                          >
-                            <Download fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-
-                      <TableRow>
-                        <TableCell
-                          style={{ paddingBottom: 0, paddingTop: 0 }}
-                          colSpan={7}
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={7}>
+                    <Skeleton height={60} />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : displaySales.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                  <Typography color="text.secondary">
+                    No sales records found.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              displaySales.map((sale) => {
+                const isOpen = openRows[sale.id];
+                return (
+                  <React.Fragment key={sale.id}>
+                    <TableRow hover>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleRow(sale.id)}
                         >
-                          <Collapse in={isOpen} timeout="auto" unmountOnExit>
-                            <Box
-                              sx={{
-                                m: 2,
-                                p: 2,
-                                bgcolor: "#fafafa",
-                                borderRadius: 1,
-                                border: "1px solid #eee",
-                              }}
-                            >
-                              <Typography
-                                variant="subtitle2"
-                                color="primary"
-                                gutterBottom
-                              >
-                                Detailed Breakdown
-                              </Typography>
+                          {isOpen ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: "medium" }}>
+                        {sale.buyer_name}
+                      </TableCell>
+                      <TableCell>
+                        {sale.items_count > 1 ? (
+                          <Chip
+                            label="Multiple"
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ) : (
+                          `Class ${sale.class_grade}`
+                        )}
+                      </TableCell>
+                      <TableCell align="right" sx={{ color: "error.main" }}>
+                        {sale.discount_sum > 0
+                          ? `-${sale.discount_sum.toLocaleString()}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: "bold" }}>
+                        {sale.paid_sum.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {sale.date
+                          ? format(new Date(sale.date), "dd MMM, hh:mm a")
+                          : "—"}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          color="primary"
+                          onClick={() => downloadPDF(sale)}
+                        >
+                          <Download fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
 
-                              {sale.course_details.map((course, idx) => (
-                                <Box key={idx} sx={{ mb: 2 }}>
-                                  <Typography
-                                    variant="body2"
-                                    sx={{
-                                      fontWeight: "bold",
-                                      bgcolor: "#e3f2fd",
-                                      p: 0.5,
-                                      pl: 1,
-                                      borderRadius: 1,
-                                    }}
-                                  >
-                                    Class: {course.class_grade}
-                                  </Typography>
-                                  <List sx={{ ml: 2, p: 0 }}>
-                                    {course.books.map((book, bIdx) => (
-                                      <Box
-                                        key={bIdx}
-                                        sx={{
-                                          display: "flex",
-                                          justifyContent: "space-between",
-                                          py: 0.5,
-                                          borderBottom: "1px dashed #ddd",
-                                        }}
-                                      >
-                                        <Typography variant="caption">
-                                          {book.name}
-                                        </Typography>
-                                        <Typography variant="caption">
-                                          PKR {book.price.toLocaleString()}
-                                        </Typography>
-                                      </Box>
-                                    ))}
-                                  </List>
-                                </Box>
-                              ))}
-                              <Divider sx={{ my: 1 }} />
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  mt: 1,
-                                }}
-                              >
-                                <Typography variant="body2" fontWeight="bold">
-                                  Total Paid Amount:
-                                </Typography>
+                    <TableRow>
+                      <TableCell
+                        style={{ paddingBottom: 0, paddingTop: 0 }}
+                        colSpan={7}
+                      >
+                        <Collapse in={isOpen} timeout="auto" unmountOnExit>
+                          <Box
+                            sx={{
+                              m: 2,
+                              p: 2,
+                              bgcolor: "#fafafa",
+                              borderRadius: 1,
+                              border: "1px solid #eee",
+                            }}
+                          >
+                            <Typography
+                              variant="subtitle2"
+                              color="primary"
+                              gutterBottom
+                            >
+                              Detailed Breakdown
+                            </Typography>
+                            {sale.course_details.map((course, idx) => (
+                              <Box key={idx} sx={{ mb: 2 }}>
                                 <Typography
                                   variant="body2"
-                                  fontWeight="bold"
-                                  color="primary"
+                                  sx={{
+                                    fontWeight: "bold",
+                                    bgcolor: "#e3f2fd",
+                                    p: 0.5,
+                                    pl: 1,
+                                    borderRadius: 1,
+                                  }}
                                 >
-                                  PKR {sale.paid_sum.toLocaleString()}
+                                  Class: {course.class_grade}
                                 </Typography>
+                                <List sx={{ ml: 2, p: 0 }}>
+                                  {course.books.map((book, bIdx) => (
+                                    <Box
+                                      key={bIdx}
+                                      sx={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        py: 0.5,
+                                        borderBottom: "1px dashed #ddd",
+                                      }}
+                                    >
+                                      <Typography variant="caption">
+                                        {book.name}
+                                      </Typography>
+                                      <Typography variant="caption">
+                                        PKR {book.price.toLocaleString()}
+                                      </Typography>
+                                    </Box>
+                                  ))}
+                                </List>
                               </Box>
+                            ))}
+                            <Divider sx={{ my: 1 }} />
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                mt: 1,
+                              }}
+                            >
+                              <Typography variant="body2" fontWeight="bold">
+                                Total Paid Amount:
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                fontWeight="bold"
+                                color="primary"
+                              >
+                                PKR {sale.paid_sum.toLocaleString()}
+                              </Typography>
                             </Box>
-                          </Collapse>
-                        </TableCell>
-                      </TableRow>
-                    </React.Fragment>
-                  );
-                })}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                );
+              })
+            )}
           </TableBody>
         </Table>
+
+        {/* ONLY SHOW LOAD MORE IF NOT SEARCHING */}
+        {!searchQuery.trim() && (
+          <Box
+            sx={{
+              p: 2,
+              display: "flex",
+              justifyContent: "center",
+              bgcolor: "#f9f9f9",
+            }}
+          >
+            {hasNextPage ? (
+              <IconButton
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                color="primary"
+                sx={{ borderRadius: 2, px: 3, py: 1, fontSize: "0.9rem" }}
+              >
+                {isFetchingNextPage ? (
+                  <CircularProgress size={24} sx={{ mr: 1 }} />
+                ) : (
+                  "Load More Records"
+                )}
+              </IconButton>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                You've reached the end of the history.
+              </Typography>
+            )}
+          </Box>
+        )}
       </Paper>
     </Container>
   );

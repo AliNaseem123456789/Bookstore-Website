@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import supabase from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
 
 export async function POST(req) {
@@ -8,7 +8,7 @@ export async function POST(req) {
   if (!name || !email || !password) {
     return NextResponse.json(
       { error: "Name, email, and password are required." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 

@@ -17,8 +17,8 @@ import {
   IconButton,
 } from "@mui/material";
 import { ExpandMore, ExpandLess } from "@mui/icons-material";
-import { supabase } from "@/lib/supabaseClient";
-import { useCart } from "@/context/CartContext";
+import supabase from "../../lib/supabaseClient";
+import useCart from "../../context/CartContext";
 
 export default function CartPage() {
   const router = useRouter();
