@@ -45,6 +45,13 @@ export default function CartPage() {
   }, [cart]);
 
   const finalTotal = Math.max(0, subtotal - globalDiscount);
+  // Add this with your other useState hooks
+  const [amountPaid, setAmountPaid] = useState(0);
+
+  // Update this useEffect to sync amountPaid with finalTotal initially
+  useEffect(() => {
+    setAmountPaid(finalTotal);
+  }, [finalTotal]);
 
   const toggleExpand = (id) => {
     setExpandedId(expandedId === id ? null : id);
@@ -57,21 +64,25 @@ export default function CartPage() {
     }
 
     setIsProcessing(true);
-    // This UUID remains invisible to the user but links the rows in the database
     const hiddenLink = crypto.randomUUID();
 
+    // Determine if this is a pending transaction
+    const isPending = amountPaid < finalTotal;
+
     try {
-      // 1. Prepare all sales records
       const salesData = cart.map((item) => {
         const itemOriginalTotal = Number(item.total_cost);
         const itemSpecificDiscount = Number(item.discount_amount) || 0;
         const itemSubtotal = itemOriginalTotal - itemSpecificDiscount;
-        const discountRatio = subtotal > 0 ? itemSubtotal / subtotal : 0;
-        const globalDiscountShare = globalDiscount * discountRatio;
-        const finalDiscountApplied = itemSpecificDiscount + globalDiscountShare;
+
+        // Calculate how much of the "Paid Cash" belongs to this specific item
+        const paymentRatio = finalTotal > 0 ? itemSubtotal / finalTotal : 0;
+        const distributedPayment = amountPaid * paymentRatio;
+        const distributedDiscount =
+          itemSpecificDiscount + globalDiscount * (itemSubtotal / subtotal);
 
         return {
-          transaction_id: hiddenLink, // The invisible linker
+          transaction_id: hiddenLink,
           buyer_name: buyerName,
           class_grade: item.class_grade,
           no_of_books: item.books.reduce(
@@ -79,8 +90,11 @@ export default function CartPage() {
             0,
           ),
           total_cost: itemOriginalTotal,
-          cost_paid: itemOriginalTotal - finalDiscountApplied,
-          discount_applied: finalDiscountApplied,
+          // CRITICAL PENDING LOGIC:
+          cost_paid: distributedPayment,
+          discount_applied: distributedDiscount,
+          payment_status: isPending ? "pending" : "paid",
+          balance_due: itemSubtotal - distributedPayment,
           books_sold: item.books,
           date: new Date(),
           sold_by_name: seller?.email || "Unknown",
@@ -141,6 +155,26 @@ export default function CartPage() {
           value={buyerName}
           onChange={(e) => setBuyerName(e.target.value)}
           disabled={isProcessing}
+        />
+        {/* Add this inside your Box where Buyer Name and Discount are */}
+        <TextField
+          label="Amount Paid Now"
+          type="number"
+          sx={{ width: "300px" }}
+          value={amountPaid}
+          onChange={(e) => setAmountPaid(Number(e.target.value))}
+          disabled={isProcessing}
+          error={amountPaid < finalTotal} // Highlights red if pending
+          helperText={
+            amountPaid < finalTotal
+              ? `Pending: PKR ${(finalTotal - amountPaid).toLocaleString()}`
+              : "Fully Paid"
+          }
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">PKR</InputAdornment>
+            ),
+          }}
         />
         <TextField
           label="Extra Cart Discount"
@@ -207,8 +241,9 @@ export default function CartPage() {
                       primary={
                         item.display_name || `Class ${item.class_grade} Course`
                       }
+                      secondaryTypographyProps={{ component: "div" }}
                       secondary={
-                        <Box component="span">
+                        <Box component="div">
                           <Typography variant="body2" color="text.secondary">
                             Total Items: {item.books.length}
                           </Typography>

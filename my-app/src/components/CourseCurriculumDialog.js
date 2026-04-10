@@ -125,6 +125,21 @@ export default function CourseCurriculumDialog({
       return [...prev, { id: bookId, qty: startQty }];
     });
   };
+  const handleManualQtyChange = (bookId, value, stock) => {
+    const numValue = parseInt(value, 10);
+
+    // If the input is empty or not a number, we can keep it as is or default to 1
+    // We use Math.min to ensure they don't type a number higher than stock
+    const validatedQty = isNaN(numValue)
+      ? 1
+      : Math.max(1, Math.min(stock, numValue));
+
+    setSelectedBooks((prev) =>
+      prev.map((item) =>
+        item.id === bookId ? { ...item, qty: validatedQty } : item,
+      ),
+    );
+  };
   const updateItemQty = (bookId, delta, stock) => {
     setSelectedBooks((prev) =>
       prev.map((item) =>
@@ -133,6 +148,16 @@ export default function CourseCurriculumDialog({
           : item,
       ),
     );
+  };
+  const handleClose = () => {
+    // Reset all local states
+    setBuyerName("");
+    setDiscount(0);
+    setSelectedBooks([]);
+    setAmountReceived("");
+
+    // Call the original onClose prop to close the dialog
+    onClose();
   };
   // 1. Calculate the total based on whether items are selected or the full course is being viewed
   const baseTotal =
@@ -338,8 +363,9 @@ export default function CourseCurriculumDialog({
         >
           {filtered.map((item) => {
             const isSelected = selectedBooks.some((s) => s.id === item.id);
+            const selection = selectedBooks.find((s) => s.id === item.id);
             const currentQty = isSelected
-              ? selectedBooks.find((s) => s.id === item.id)?.qty
+              ? selection?.qty
               : getDefaultQty(item);
 
             return (
@@ -357,21 +383,51 @@ export default function CourseCurriculumDialog({
                       : `PKR ${item.price} | Stock: ${item.quantity}`
                   }
                 />
+
+                {/* QUANTITY CONTROL SECTION */}
                 <Box sx={{ display: "flex", alignItems: "center", mr: 2 }}>
                   <IconButton
                     size="small"
                     onClick={() => updateItemQty(item.id, -1, item.quantity)}
-                    disabled={!isSelected}
+                    disabled={!isSelected || currentQty <= 1}
                   >
                     <Remove fontSize="small" />
                   </IconButton>
-                  <Typography sx={{ mx: 1, fontWeight: "bold" }}>
-                    {currentQty}
-                  </Typography>
+
+                  <TextField
+                    variant="standard"
+                    size="small"
+                    type="number"
+                    value={currentQty}
+                    disabled={!isSelected}
+                    onChange={(e) =>
+                      handleManualQtyChange(
+                        item.id,
+                        e.target.value,
+                        item.quantity,
+                      )
+                    }
+                    inputProps={{
+                      style: {
+                        textAlign: "center",
+                        fontWeight: "bold",
+                        width: "40px",
+                      },
+                      min: 1,
+                      max: item.quantity,
+                    }}
+                    InputProps={{ disableUnderline: true }}
+                    sx={{
+                      mx: 0.5,
+                      bgcolor: isSelected ? "#f0f7ff" : "transparent",
+                      borderRadius: "4px",
+                    }}
+                  />
+
                   <IconButton
                     size="small"
                     onClick={() => updateItemQty(item.id, 1, item.quantity)}
-                    disabled={!isSelected}
+                    disabled={!isSelected || currentQty >= item.quantity}
                   >
                     <Add fontSize="small" />
                   </IconButton>
@@ -384,7 +440,7 @@ export default function CourseCurriculumDialog({
     );
   };
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
       <DialogTitle sx={{ fontWeight: "bold" }}>{title}</DialogTitle>
       <DialogContent dividers sx={{ bgcolor: "#fcfcfc" }}>
         <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -525,7 +581,7 @@ export default function CourseCurriculumDialog({
             </Box>
           </>
         )}
-        <Button onClick={onClose} color="inherit">
+        <Button onClick={handleClose} color="inherit">
           Cancel
         </Button>
       </DialogActions>
