@@ -34,19 +34,22 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const PAGE_SIZE = 40;
-async function fetchSales({ pageParam = 0, filter = "all" }) {
+
+// Add 'seller' to the arguments
+async function fetchSales({ pageParam = 0, filter = "all", seller = "all" }) {
   let query = supabase
     .from("course_sales")
     .select(
       "id, transaction_id, buyer_name, sold_by_name, class_grade, no_of_books, total_cost, cost_paid, discount_applied, date, books_sold, payment_status, balance_due",
     );
 
-  // Apply Filters using the new columns
-  if (filter === "discounted") {
-    query = query.gt("discount_applied", 0);
-  } else if (filter === "pending") {
-    // MUCH safer and faster using the new column
-    query = query.eq("payment_status", "pending");
+  // Apply existing filters
+  if (filter === "discounted") query = query.gt("discount_applied", 0);
+  if (filter === "pending") query = query.eq("payment_status", "pending");
+
+  // NEW: Apply Seller Filter if one is selected
+  if (seller !== "all") {
+    query = query.eq("sold_by_name", seller);
   }
 
   const { data, error } = await query
@@ -54,7 +57,6 @@ async function fetchSales({ pageParam = 0, filter = "all" }) {
     .range(pageParam, pageParam + PAGE_SIZE - 1);
 
   if (error) throw new Error(error.message);
-
   return {
     data,
     nextPage: pageParam + PAGE_SIZE,
@@ -83,12 +85,34 @@ async function searchSales(name, filter) {
   if (error) throw new Error(error.message);
   return data;
 }
+// NEW: Add this function to fetch unique seller names from the DB
+async function fetchUniqueSellers() {
+  const { data, error } = await supabase
+    .from("course_sales")
+    .select("sold_by_name");
+
+  if (error) throw new Error(error.message);
+
+  // Extract names, remove duplicates using Set, and filter out nulls
+  const uniqueSellers = [
+    ...new Set(data.map((item) => item.sold_by_name)),
+  ].filter(Boolean);
+
+  return uniqueSellers;
+}
 
 export default function CourseSalesPage() {
   const [openRows, setOpenRows] = React.useState({});
   const [searchQuery, setSearchQuery] = React.useState("");
   const [filter, setFilter] = React.useState("all");
   // 1. Infinite Query for normal history
+  const [selectedSeller, setSelectedSeller] = React.useState("all");
+
+  // NEW: Fetch the list of unique sellers
+  const { data: sellersList = [] } = useQuery({
+    queryKey: ["unique_sellers"],
+    queryFn: fetchUniqueSellers,
+  });
   const {
     data: infiniteData,
     error: infiniteError,
@@ -97,8 +121,9 @@ export default function CourseSalesPage() {
     hasNextPage,
     fetchNextPage,
   } = useInfiniteQuery({
-    queryKey: ["course_sales", filter], // This triggers the refetch when filter changes
-    queryFn: ({ pageParam }) => fetchSales({ pageParam, filter }), // PASS FILTER HERE
+    queryKey: ["course_sales", filter, selectedSeller], // This triggers the refetch when filter changes
+    queryFn: ({ pageParam }) =>
+      fetchSales({ pageParam, filter, seller: selectedSeller }), // PASS FILTER HERE
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextPage : undefined,
@@ -257,7 +282,23 @@ export default function CourseSalesPage() {
             ),
           }}
         />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Sold By</InputLabel>
+          <Select
+            value={selectedSeller}
+            label="Sold By"
+            onChange={(e) => setSelectedSeller(e.target.value)}
+          >
+            <MenuItem value="all">All Sellers</MenuItem>
+            {sellersList.map((email) => (
+              <MenuItem key={email} value={email}>
+                {email.replace("@gmail.com", "")}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
+
       <Box
         sx={{
           display: "flex",
@@ -294,6 +335,9 @@ export default function CourseSalesPage() {
               <TableCell width={50} />
               <TableCell>
                 <strong>Buyer</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Seller</strong>
               </TableCell>
               <TableCell>
                 <strong>Class</strong>
@@ -345,6 +389,10 @@ export default function CourseSalesPage() {
                       </TableCell>
                       <TableCell sx={{ fontWeight: "medium" }}>
                         {sale.buyer_name}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: "medium" }}>
+                        {/* Strips @gmail.com for the seller's name display */}
+                        {sale.sold_by_name?.replace("@gmail.com", "") || "N/A"}
                       </TableCell>
                       <TableCell>
                         {sale.items_count > 1 ? (
