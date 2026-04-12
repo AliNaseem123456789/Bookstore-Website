@@ -39,6 +39,7 @@ export default function CourseCurriculumDialog({
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
   const [amountReceived, setAmountReceived] = React.useState(""); // New state
+  const [isProcessing, setIsProcessing] = React.useState(false);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -125,14 +126,10 @@ export default function CourseCurriculumDialog({
       return [...prev, { id: bookId, qty: startQty }];
     });
   };
+
   const handleManualQtyChange = (bookId, value, stock) => {
     const numValue = parseInt(value, 10);
-
-    // If the input is empty or not a number, we can keep it as is or default to 1
-    // We use Math.min to ensure they don't type a number higher than stock
-    const validatedQty = isNaN(numValue)
-      ? 1
-      : Math.max(1, Math.min(stock, numValue));
+    const validatedQty = isNaN(numValue) || numValue < 1 ? 1 : numValue;
 
     setSelectedBooks((prev) =>
       prev.map((item) =>
@@ -144,11 +141,12 @@ export default function CourseCurriculumDialog({
     setSelectedBooks((prev) =>
       prev.map((item) =>
         item.id === bookId
-          ? { ...item, qty: Math.max(1, Math.min(stock, item.qty + delta)) }
+          ? { ...item, qty: Math.max(1, item.qty + delta) } // Removed min/max restriction
           : item,
       ),
     );
   };
+
   const handleClose = () => {
     // Reset all local states
     setBuyerName("");
@@ -181,27 +179,83 @@ export default function CourseCurriculumDialog({
       status: balanceDue > 0 ? "pending" : "paid",
     };
   };
+  // 1. Unified Helper Function (Keeps logic in one place)
+  const processTransactionInventory = async (
+    itemsToProcess,
+    saleId,
+    buyerName,
+  ) => {
+    for (const item of itemsToProcess) {
+      // FORCE TYPE NORMALIZATION: Cast both to Number to ignore String vs Number mismatches
+      const bookInStock = books.find((b) => Number(b.id) === Number(item.id));
+
+      // DETAILED LOGGING FOR DEBUGGING
+      if (!bookInStock) {
+        console.error(
+          `INVENTORY MISMATH: Could not find book ID ${item.id} (type: ${typeof item.id})`,
+        );
+        console.log(
+          "Current Books in State:",
+          books.map((b) => `${b.id} (${typeof b.id})`),
+        );
+        continue; // Skip this item instead of crashing the whole transaction
+      }
+
+      const available = Number(bookInStock.quantity);
+      const requested = Number(item.qty);
+
+      console.log(
+        `Processing ID ${item.id}: Req=${requested}, Avail=${available}`,
+      );
+
+      // A. Update physical stock
+      const amountToDeduct = Math.min(available, requested);
+      if (amountToDeduct > 0) {
+        const { error: updateError } = await supabase
+          .from("books")
+          .update({ quantity: available - amountToDeduct })
+          .eq("id", Number(bookInStock.id)); // Use the ID from the found object
+
+        if (updateError) console.error("Update Error:", updateError);
+      }
+
+      // B. Handle Backorder
+      if (requested > available) {
+        const { error: backorderError } = await supabase
+          .from("backordered_items")
+          .insert({
+            sale_id: saleId,
+            book_id: Number(item.id),
+            quantity: requested - available,
+            status: "pending",
+            buyer_name: buyerName,
+          });
+
+        if (backorderError) console.error("Backorder Error:", backorderError);
+      }
+    }
+  };
+  // 2. Fixed handleBuyCourse
   const handleBuyCourse = async () => {
     if (!buyerName.trim()) return alert("Enter buyer name.");
 
-    // Use the helper to get actual paid, balance, and status
     const { actualPaid, balanceDue, status } =
       getPaymentDetails(totalAfterDiscount);
-    const internalTransactionId = crypto.randomUUID();
 
+    // Insert Sale
     const { data, error: saleError } = await supabase
       .from("course_sales")
       .insert({
-        transaction_id: internalTransactionId,
+        transaction_id: crypto.randomUUID(),
         is_full_course: true,
         buyer_name: buyerName,
         class_grade: isCopiesOnly ? "Copies" : selectedClass,
         no_of_books: fullCourseData.items.reduce((a, b) => a + b.qty, 0),
         total_cost: fullCourseData.total,
-        cost_paid: actualPaid, // Records amountReceived or totalAfterDiscount
+        cost_paid: actualPaid,
         discount_applied: discount,
-        payment_status: status, // "pending" if balanceDue > 0
-        balance_due: balanceDue, // Tracks the remaining debt
+        payment_status: status,
+        balance_due: balanceDue,
         books_sold: fullCourseData.items.map((item) => ({
           ...item,
           quantity: item.qty,
@@ -213,20 +267,100 @@ export default function CourseCurriculumDialog({
 
     if (saleError) return alert("Error recording sale: " + saleError.message);
 
-    // Inventory update loop...
-    for (const item of fullCourseData.items) {
-      const currentInInventory = books.find((b) => b.id === item.id);
-      if (currentInInventory) {
-        await supabase
-          .from("books")
-          .update({ quantity: currentInInventory.quantity - item.qty })
-          .eq("id", item.id);
-      }
-    }
+    // Call Helper
+    await processTransactionInventory(
+      fullCourseData.items,
+      data[0].id,
+      buyerName,
+    );
 
     await queryClient.invalidateQueries({ queryKey: ["books"] });
-    if (data && data[0]) router.push(`/receipt/${data[0].id}`);
+    router.push(`/receipt/${data[0].id}`);
     onClose();
+  };
+
+  // 3. Fixed handleBuySelect
+
+  const handleBuySelected = async () => {
+    // 1. Validation: Ensure required fields exist
+    if (isProcessing) return; // Prevent double-execution
+    setIsProcessing(true);
+
+    try {
+      if (!buyerName.trim()) return alert("Please enter buyer name.");
+      if (selectedBooks.length === 0)
+        return alert("Please select items first.");
+
+      const totalAfterDiscount = Math.max(0, currentSelectionTotal - discount);
+      const actualPaid =
+        amountReceived === "" ? totalAfterDiscount : Number(amountReceived);
+      const balanceDue = totalAfterDiscount - actualPaid;
+      const status = balanceDue > 0 ? "pending" : "paid";
+
+      try {
+        // 2. Prepare items with safety check
+        const booksToSell = selectedBooks.map((s) => {
+          const bookFound = books.find((b) => Number(b.id) === Number(s.id));
+          if (!bookFound)
+            throw new Error(`Book ID ${s.id} not found in inventory.`);
+          return {
+            ...bookFound,
+            quantity: s.qty,
+          };
+        });
+
+        // 3. Insert Sale
+        const { data, error: saleError } = await supabase
+          .from("course_sales")
+          .insert({
+            transaction_id: crypto.randomUUID(),
+            is_full_course: false,
+            buyer_name: buyerName,
+            class_grade: isCopiesOnly ? "Copies" : selectedClass,
+            no_of_books: selectedBooks.reduce((a, b) => a + b.qty, 0),
+            total_cost: currentSelectionTotal,
+            cost_paid: actualPaid,
+            discount_applied: discount,
+            payment_status: status,
+            balance_due: balanceDue,
+            books_sold: booksToSell,
+            date: new Date().toISOString(),
+            sold_by_name: seller?.email || "Unknown",
+          })
+          .select();
+
+        if (saleError) {
+          console.error(
+            "SALE INSERT ERROR:",
+            JSON.stringify(saleError, null, 2),
+          );
+          throw new Error(saleError.message);
+        }
+
+        const saleId = data[0].id;
+        console.log("Sale recorded successfully. Sale ID:", saleId);
+
+        // 4. Call Helper
+        const itemsForInventory = selectedBooks.map((s) => ({
+          id: s.id,
+          qty: s.qty,
+        }));
+
+        await processTransactionInventory(itemsForInventory, saleId, buyerName);
+
+        // 5. Success
+        await queryClient.invalidateQueries({ queryKey: ["books"] });
+        router.push(`/receipt/${saleId}`);
+        onClose();
+      } catch (err) {
+        console.error("CRITICAL FAILURE:", err);
+        alert("Failed to complete sale: " + err.message);
+      }
+    } catch (err) {
+      // ...
+    } finally {
+      setIsProcessing(false); // Always reset
+    }
   };
   const handleAddFullCourseToCart = () => {
     addToCart({
@@ -243,59 +377,7 @@ export default function CourseCurriculumDialog({
     onClose();
   };
   // 2. Handle Selected Items Purchase
-  const handleBuySelected = async () => {
-    if (!buyerName.trim() || selectedBooks.length === 0)
-      return alert("Enter name and select items.");
 
-    const totalAfterDiscount = Math.max(0, currentSelectionTotal - discount);
-
-    // Logic: Use amountReceived if entered, otherwise assume full payment
-    const actualPaid =
-      amountReceived === "" ? totalAfterDiscount : Number(amountReceived);
-    const balanceDue = totalAfterDiscount - actualPaid;
-    const status = balanceDue > 0 ? "pending" : "paid";
-
-    const internalTransactionId = crypto.randomUUID();
-
-    const { data, error: saleError } = await supabase
-      .from("course_sales")
-      .insert({
-        transaction_id: internalTransactionId,
-        is_full_course: false,
-        buyer_name: buyerName,
-        class_grade: isCopiesOnly ? "Copies" : selectedClass,
-        no_of_books: selectedBooks.reduce((a, b) => a + b.qty, 0),
-        total_cost: currentSelectionTotal,
-        cost_paid: actualPaid,
-        discount_applied: discount,
-        payment_status: status,
-        balance_due: balanceDue,
-        books_sold: selectedBooks.map((s) => {
-          const bookData = books.find((b) => b.id === s.id);
-          return { ...bookData, quantity: s.qty };
-        }),
-        date: new Date(),
-        sold_by_name: seller?.email || "Unknown",
-      })
-      .select();
-
-    if (saleError) return alert("Error: " + saleError.message);
-
-    // Inventory update loop remains the same...
-    for (const s of selectedBooks) {
-      const currentInInventory = books.find((b) => b.id === s.id);
-      if (currentInInventory) {
-        await supabase
-          .from("books")
-          .update({ quantity: currentInInventory.quantity - s.qty })
-          .eq("id", s.id);
-      }
-    }
-
-    await queryClient.invalidateQueries({ queryKey: ["books"] });
-    if (data?.[0]) router.push(`/receipt/${data[0].id}`);
-    onClose();
-  };
   const handleAddSelectedToCart = () => {
     if (selectedBooks.length === 0) return alert("Select items first.");
     addToCart({
@@ -373,7 +455,7 @@ export default function CourseCurriculumDialog({
                 <Checkbox
                   checked={isSelected}
                   onChange={() => toggleBookSelection(item.id)}
-                  disabled={item.quantity <= 0}
+                  // disabled={item.quantity <= 0}
                 />
                 <ListItemText
                   primary={item.name}
@@ -384,11 +466,10 @@ export default function CourseCurriculumDialog({
                   }
                 />
 
-                {/* QUANTITY CONTROL SECTION */}
                 <Box sx={{ display: "flex", alignItems: "center", mr: 2 }}>
                   <IconButton
                     size="small"
-                    onClick={() => updateItemQty(item.id, -1, item.quantity)}
+                    onClick={() => updateItemQty(item.id, -1, 9999)} // Allow arbitrary high number
                     disabled={!isSelected || currentQty <= 1}
                   >
                     <Remove fontSize="small" />
@@ -401,11 +482,7 @@ export default function CourseCurriculumDialog({
                     value={currentQty}
                     disabled={!isSelected}
                     onChange={(e) =>
-                      handleManualQtyChange(
-                        item.id,
-                        e.target.value,
-                        item.quantity,
-                      )
+                      handleManualQtyChange(item.id, e.target.value, 9999)
                     }
                     inputProps={{
                       style: {
@@ -414,7 +491,6 @@ export default function CourseCurriculumDialog({
                         width: "40px",
                       },
                       min: 1,
-                      max: item.quantity,
                     }}
                     InputProps={{ disableUnderline: true }}
                     sx={{
@@ -426,8 +502,8 @@ export default function CourseCurriculumDialog({
 
                   <IconButton
                     size="small"
-                    onClick={() => updateItemQty(item.id, 1, item.quantity)}
-                    disabled={!isSelected || currentQty >= item.quantity}
+                    onClick={() => updateItemQty(item.id, 1, 9999)} // Allow arbitrary high number
+                    disabled={!isSelected}
                   >
                     <Add fontSize="small" />
                   </IconButton>

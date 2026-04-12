@@ -65,17 +65,15 @@ export default function CartPage() {
 
     setIsProcessing(true);
     const hiddenLink = crypto.randomUUID();
-
-    // Determine if this is a pending transaction
     const isPending = amountPaid < finalTotal;
 
     try {
+      // 1. Prepare Sales Data
       const salesData = cart.map((item) => {
         const itemOriginalTotal = Number(item.total_cost);
         const itemSpecificDiscount = Number(item.discount_amount) || 0;
         const itemSubtotal = itemOriginalTotal - itemSpecificDiscount;
 
-        // Calculate how much of the "Paid Cash" belongs to this specific item
         const paymentRatio = finalTotal > 0 ? itemSubtotal / finalTotal : 0;
         const distributedPayment = amountPaid * paymentRatio;
         const distributedDiscount =
@@ -90,7 +88,6 @@ export default function CartPage() {
             0,
           ),
           total_cost: itemOriginalTotal,
-          // CRITICAL PENDING LOGIC:
           cost_paid: distributedPayment,
           discount_applied: distributedDiscount,
           payment_status: isPending ? "pending" : "paid",
@@ -102,15 +99,14 @@ export default function CartPage() {
         };
       });
 
-      // 2. Insert everything at once and get back the numeric IDs
       const { data, error: saleError } = await supabase
         .from("course_sales")
         .insert(salesData)
-        .select(); // This fetches the created IDs
+        .select();
 
       if (saleError) throw saleError;
 
-      // 3. Update Inventory
+      // 2. Inventory Management with Backorder Logic
       for (const item of cart) {
         for (const book of item.books) {
           const { data: latestBook } = await supabase
@@ -119,18 +115,37 @@ export default function CartPage() {
             .eq("id", book.id)
             .single();
 
-          const newQuantity =
-            (latestBook?.quantity || 0) - (book.quantity || 1);
-          await supabase
-            .from("books")
-            .update({ quantity: newQuantity })
-            .eq("id", book.id);
+          const currentStock = latestBook?.quantity || 0;
+          const requested = book.quantity || 1;
+
+          if (currentStock >= requested) {
+            // A. Plenty of stock: Just deduct
+            await supabase
+              .from("books")
+              .update({ quantity: currentStock - requested })
+              .eq("id", book.id);
+          } else {
+            // B. Insufficient stock:
+            // 1. Reduce stock to 0
+            await supabase
+              .from("books")
+              .update({ quantity: 0 })
+              .eq("id", book.id);
+
+            // 2. Create backorder for the difference
+            const backorderQty = requested - currentStock;
+            await supabase.from("backordered_items").insert({
+              book_id: book.id,
+              buyer_name: buyerName,
+              quantity: backorderQty,
+              status: "pending",
+              created_at: new Date(),
+            });
+          }
         }
       }
 
       clearCart();
-
-      // 4. Redirect using the numeric ID (e.g., 181)
       if (data && data.length > 0) {
         router.push(`/receipt/${data[0].id}`);
       }
@@ -140,7 +155,6 @@ export default function CartPage() {
       setIsProcessing(false);
     }
   }
-
   // ... (Keep the same return UI as your working case) ...
   return (
     <Container maxWidth="md" sx={{ mt: 6, mb: 10 }}>
