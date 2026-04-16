@@ -70,6 +70,7 @@ const NavTabs = React.memo(function NavTabs() {
       { label: "Sales", value: "/coursesales" },
       { label: "Pending", value: "/pending_payment" },
       { label: "Deliveries", value: "/fullfilment" },
+      { label: "Inevntory Pending", value: "/PendingInventory" },
     ],
     [],
   );
@@ -191,6 +192,13 @@ const NavTabs = React.memo(function NavTabs() {
                     href="/admin/sales"
                   >
                     Sales Analytics
+                  </MenuItem>
+                  <MenuItem
+                    onClick={handleAdminMenuClose}
+                    component={Link}
+                    href="/addStock"
+                  >
+                    Stock
                   </MenuItem>
                 </Menu>
               </>

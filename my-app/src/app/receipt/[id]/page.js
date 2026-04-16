@@ -6,14 +6,14 @@ import { supabase } from "../../../lib/supabaseClient";
 import { Container, Box, CircularProgress, Typography } from "@mui/material";
 
 export default function ReceiptPage() {
-  const { id } = useParams(); // This is the numeric ID from the URL
+  const { id } = useParams(); // Numeric ID from the URL
   const [transactionData, setTransactionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const receiptRef = useRef();
 
   useEffect(() => {
     async function fetchFullTransaction() {
-      // 1. Get the transaction_id (UUID) for this numeric ID
+      // 1. Get the transaction_id (UUID) to fetch all related items
       const { data: firstItem, error } = await supabase
         .from("course_sales")
         .select("transaction_id")
@@ -25,16 +25,29 @@ export default function ReceiptPage() {
         return;
       }
 
-      // 2. Get EVERY item that shares that same UUID
+      // 2. Fetch EVERY item in this transaction
       const { data: allItems } = await supabase
         .from("course_sales")
         .select("*")
         .eq("transaction_id", firstItem.transaction_id);
 
+      // 3. Fetch ONLY the backordered items associated with these sales
+      const { data: backorders } = await supabase
+        .from("backordered_items")
+        .select("sale_id")
+        .in(
+          "sale_id",
+          allItems.map((item) => item.id),
+        )
+        .eq("status", "pending");
+
+      // Create a Set of IDs for O(1) lookup speed
+      const backorderSaleIds = new Set(backorders?.map((b) => b.sale_id) || []);
+
       if (allItems && allItems.length > 0) {
         const base = allItems[0];
 
-        // 1. Calculate the math across all items in this transaction
+        // 4. Calculate Financial Totals
         const totalGross = allItems.reduce(
           (sum, item) => sum + Number(item.total_cost || 0),
           0,
@@ -56,7 +69,6 @@ export default function ReceiptPage() {
           receiptNumber: id,
           buyer: base.buyer_name,
           seller: base.sold_by_name,
-          // 2. Create a summary object to pass to the Receipt
           summary: {
             gross: totalGross,
             paid: totalPaid,
@@ -64,6 +76,7 @@ export default function ReceiptPage() {
             discount: totalDiscount,
             payable: totalGross - totalDiscount,
           },
+          // 5. Map items and flag those that are pending delivery
           cart: allItems.map((item) => ({
             display_name:
               item.class_grade === "Copies"
@@ -73,12 +86,14 @@ export default function ReceiptPage() {
             total_cost: item.total_cost,
             discount_amount: item.discount_applied,
             is_full_course: item.is_full_course,
+            isPendingDelivery: backorderSaleIds.has(item.id),
           })),
         });
       }
       setLoading(false);
     }
-    fetchFullTransaction();
+
+    if (id) fetchFullTransaction();
   }, [id]);
 
   if (loading)
@@ -87,6 +102,7 @@ export default function ReceiptPage() {
         <CircularProgress />
       </Box>
     );
+
   if (!transactionData)
     return (
       <Typography align="center" mt={10}>
@@ -100,7 +116,7 @@ export default function ReceiptPage() {
         ref={receiptRef}
         cart={transactionData.cart}
         buyerName={transactionData.buyer}
-        summary={transactionData.summary} // Updated this
+        summary={transactionData.summary}
         transactionId={transactionData.receiptNumber}
         seller={transactionData.seller}
       />
