@@ -37,20 +37,15 @@ function formatDate(date) {
 export default function BookDetailPage({ params }) {
   const unwrappedParams = React.use(params);
   const { id } = unwrappedParams;
-
   const router = useRouter();
-
   const [book, setBook] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const [isAdmin, setIsAdmin] = React.useState(false); // Admin state
-
   const [mounted, setMounted] = React.useState(false);
   const [purchaseDate, setPurchaseDate] = React.useState("");
-
   const [editOpen, setEditOpen] = React.useState(false);
   const [purchaseOpen, setPurchaseOpen] = React.useState(false);
-
   const [form, setForm] = React.useState({
     name: "",
     publisher: "",

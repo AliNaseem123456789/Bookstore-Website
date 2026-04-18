@@ -68,7 +68,7 @@ export default function CartPage() {
     const isPending = amountPaid < finalTotal;
 
     try {
-      // 1. Prepare Sales Data
+      // 1. Prepare Sales Data (Existing)
       const salesData = cart.map((item) => {
         const itemOriginalTotal = Number(item.total_cost);
         const itemSpecificDiscount = Number(item.discount_amount) || 0;
@@ -99,56 +99,59 @@ export default function CartPage() {
         };
       });
 
-      const { data, error: saleError } = await supabase
+      const { data: salesRows, error: saleError } = await supabase
         .from("course_sales")
         .insert(salesData)
         .select();
 
       if (saleError) throw saleError;
 
-      // 2. Inventory Management with Backorder Logic
-      for (const item of cart) {
-        for (const book of item.books) {
-          const { data: latestBook } = await supabase
+      // 2. Aggregate Demand: Calculate total quantity needed for every book
+      const demandMap = {}; // { bookId: totalQuantityNeeded }
+      cart.forEach((item) => {
+        item.books.forEach((book) => {
+          demandMap[book.id] = (demandMap[book.id] || 0) + (book.quantity || 1);
+        });
+      });
+
+      // 3. Process Inventory Updates and Backorders
+      for (const [bookId, requestedQty] of Object.entries(demandMap)) {
+        const { data: bookRecord } = await supabase
+          .from("books")
+          .select("quantity")
+          .eq("id", bookId)
+          .single();
+
+        const currentStock = bookRecord?.quantity || 0;
+
+        if (currentStock >= requestedQty) {
+          // A. Sufficient Stock: Deduct total requested
+          await supabase
             .from("books")
-            .select("quantity")
-            .eq("id", book.id)
-            .single();
+            .update({ quantity: currentStock - requestedQty })
+            .eq("id", bookId);
+        } else {
+          // B. Insufficient Stock:
+          // 1. Reduce stock to 0
+          await supabase.from("books").update({ quantity: 0 }).eq("id", bookId);
 
-          const currentStock = latestBook?.quantity || 0;
-          const requested = book.quantity || 1;
-
-          if (currentStock >= requested) {
-            // A. Plenty of stock: Just deduct
-            await supabase
-              .from("books")
-              .update({ quantity: currentStock - requested })
-              .eq("id", book.id);
-          } else {
-            // B. Insufficient stock:
-            // 1. Reduce stock to 0
-            await supabase
-              .from("books")
-              .update({ quantity: 0 })
-              .eq("id", book.id);
-
-            // 2. Create backorder for the difference
-            const backorderQty = requested - currentStock;
-            await supabase.from("backordered_items").insert({
-              book_id: book.id,
-              buyer_name: buyerName,
-              quantity: backorderQty,
-              status: "pending",
-              created_at: new Date(),
-            });
-          }
+          // 2. Create ONE backorder record for the missing amount
+          // We attach it to the FIRST sale row that contained this book
+          // Or leave sale_id null if backorder policy allows
+          const backorderQty = requestedQty - currentStock;
+          await supabase.from("backordered_items").insert({
+            book_id: bookId,
+            buyer_name: buyerName,
+            quantity: backorderQty,
+            status: "pending",
+            sale_id: salesRows[0].id, // Linked to the first transaction row
+            created_at: new Date(),
+          });
         }
       }
 
       clearCart();
-      if (data && data.length > 0) {
-        router.push(`/receipt/${data[0].id}`);
-      }
+      router.push(`/receipt/${salesRows[0].id}`);
     } catch (err) {
       console.error(err);
       alert("Error: " + err.message);
