@@ -6,35 +6,38 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "db:reset": "node --env-file-if-exists=.env scripts/migrate.mjs --reset",
+    "db:seed": "node --env-file-if-exists=.env scripts/seed.mjs",
+    "db:verify": "node --env-file-if-exists=.env scripts/verify-integrity.mjs",
+    "test:e2e": "node --env-file-if-exists=.env scripts/e2e-smoke.mjs",
+    "test:concurrency": "node --env-file-if-exists=.env scripts/test-concurrency.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.2",
     "@mui/material": "^7.3.2",
-    "@mui/x-date-pickers": "^8.14.1",
-    "@supabase/supabase-js": "^2.57.4",
+    "@mui/material-nextjs": "^7.3.2",
     "@tanstack/react-query": "^5.90.2",
-    "@tanstack/react-query-devtools": "^5.90.2",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
-    "date-fns": "^4.1.0",
-    "html2canvas": "^1.4.1",
+    "drizzle-orm": "^0.44.6",
     "jose": "^6.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.7",
     "next": "^16.1.1",
+    "pg": "^8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-to-print": "^3.3.0"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
-    "tailwindcss": "^4"
+    "typescript": "^5.9.3",
+    "@types/node": "^22.18.8",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "@types/pg": "^8.15.5"
   }
 }

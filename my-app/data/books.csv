@@ -1,0 +1,127 @@
+id,name,publisher,class_grade,quantity,price,Type
+1,Kids Creative English Reader  For Nursery 1,scientific,Nursery,14,300.00,Book
+2,"Takhliqi Urdu Quaida For Nursery 1 ",scientific,Nursery,14,300.00,Book
+3,MAD (make arts daily) EYFS I,Acme,Nursery,10,410.00,Book
+4,Printed Urdu Copy,scientific,Nursery,15,425.00,Book
+5,Printed English Copy,scientific,Nursery,12,425.00,Book
+6,Printed Math Copy,scientific,Nursery,16,425.00,Book
+7,"introductroy english ",Gaba Sons,KG-1,37,410.00,Book
+8,English for KG-1,Gaba Sons,KG-1,35,490.00,Book
+9,"Maths Series Kindergarten ",Diamond Pub,KG-1,36,650.00,Book
+10,Urdu ki amli kitab (awwal),Scientific Pub,KG-1,31,355.00,Book
+11,Link Dilkash Quaida,Rahber Pub,KG-1,37,170.00,Book
+12,MAD (make arts daily) EYFS II,Acme,KG-1,31,410.00,Book
+13,Oxford Modern English Primer B,Oxford Pub,KG-2,12,850.00,Book
+14,Rahber Awaze Urdu 3rd Step KG-2,Rahber,KG-2,41,340.00,Book
+15,MAD (make arts daily) EYFS III,Acme,KG-2,29,410.00,Book
+16,Math Prep-II,AJ Publisher,KG-2,28,700.00,Book
+17,Urdu Prep-II,AJ Publisher,KG-2,28,700.00,Book
+18,Eng Prep-II,AJ Publisher,KG-2,29,700.00,Book
+19,Oxford Modern English Book-1 (3rd Edition),Oxford Pub,1,0,950.00,Book
+20,New Brighter Grammar Book 1,Gaba Sons,1,17,395.00,Book
+21,Mind Master Science Book -1,Gaba Sons,1,27,240.00,Book
+22,Rahber Math Book-1,Rahber,1,34,300.00,Book
+23,Social Studies Book 1 (M.Zubair Waine),Gohar,1,37,240.00,Book
+24,Mind Master Series Islamiat Book-1,Gaba Sons,1,37,170.00,Book
+25,Urdu Roshni Silsila Kirnai Book-1+C134,Scientific Pub,1,44,245.00,Book
+26,Computer Today-1(updated edition),Gaba Sons,1,8,535.00,Book
+27,Drawing Series-1 (Revised Edition),Gaba Sons,1,24,265.00,Book
+28,Oxford Modern English Book-2 (3rd Edition),Oxford Pub,2,11,950.00,Book
+29,New Brighter Grammar book-2,Gaba Sons,2,36,410.00,Book
+30,Mind Master Science Book -2,Gaba Sons,2,12,260.00,Book
+31,Rahber Math Book-2,Rahber,2,38,300.00,Book
+32,Social Studies Book 2 (M.Zubair Waine),Gohar,2,22,270.00,Book
+33,Mind Master Series Islamiat Book-2,Gaba Sons,2,22,180.00,Book
+34,Urdu Roshni Silsila Suraj Book-2,Scientific Pub,2,28,255.00,Book
+35,Computer Today-2(updated edition),Gaba Sons,2,18,595.00,Book
+36,Drawing Series-2 (Revised Edition),Gaba Sons,2,1,265.00,Book
+37,Oxford Modern English Book-3 (3rd Edition),Oxford Pub,3,0,950.00,Book
+38,Skylark Grammer Book 3,Gohar Pub,3,0,440.00,Book
+39,Mind Master Science Book -3,Gaba Sons,3,9,320.00,Book
+40,Rahber Math Book-3,Rahber,3,14,320.00,Book
+41,Social Studies Book 3 (M.Zubair Waine),Gohar,3,19,390.00,Book
+42,Mind Master Series Islamiat Book-3,Gaba Sons,3,19,200.00,Book
+43,Urdu Roshni Silsila Chanda Book-3,Scientific Pub,3,0,260.00,Book
+44,Computer Today-3(updated edition),Gaba Sons,3,1,625.00,Book
+45,Drawing Series-3 (Revised Edition),Gaba Sons,3,0,265.00,Book
+46,Oxford Modern English Book-4 (3rd Edition),Oxford Pub,4,12,960.00,Book
+47,Rahber Math Book-4,Rahber,4,31,360.00,Book
+48,Mind Master Science Book -4,Gaba Sons,4,45,320.00,Book
+49,Urdu Roshni Silsila Taray Book-4,Scientific Pub,4,27,265.00,Book
+50,Social Studies Book 4 (M.Zubair Waine),Gohar,4,45,380.00,Book
+51,Mind Master Series Islamiat Book-4,Gaba Sons,4,45,240.00,Book
+52,Computer Today-4(updated edition),Gaba Sons,4,39,625.00,Book
+53,Drawing Series-4 (Revised Edition),Gaba Sons,4,36,265.00,Book
+54,Skylark Gramer Book 4,Gohar Pub,4,28,440.00,Book
+55,Oxford Modern English Book-5 (3rd Edition),Oxford Pub,5,16,960.00,Book
+56,Rahber Math Book-5,Rahber,5,40,460.00,Book
+57,Mind Master Science Book -5,Gaba Sons,5,44,345.00,Book
+58,Urdu Roshni Silsila khahkasha Book-5,Scientific Pub,5,32,275.00,Book
+59,Social Studies Book 5 (M.Zubair Waine),Gohar,5,44,550.00,Book
+60,Mind Master Series Islamiat Book-5,Gaba Sons,5,44,240.00,Book
+61,Computer Today-5(updated edition),Gaba Sons,5,35,675.00,Book
+62,Sindhi Book 3,S.T.B.B,5,11,91.00,Book
+63,Skylark Gramer Book 5,Gohar Pub,5,26,440.00,Book
+64,Drawing Series-5 (Revised Edition),Gaba Sons,5,53,265.00,Book
+65,New Modern English Book 6 (3rd Edition),Oxford Pub,6,11,1050.00,Book
+66,"Computer Today-6 ",Gaba Sons,6,33,720.00,Book
+67,Islamite book 6,Gaba Sons,6,51,310.00,Book
+68,Skylark Gramer Book 6,Gohar Pub,6,31,760.00,Book
+69,S.S Drawing book 6,S.S Publisher,6,5,180.00,Book
+70,Mathematics Book-6 (English Medium),S.T.B.B,6,38,440.00,Book
+71,Esay Science Book 6,Oxford Pub,6,41,460.00,Book
+72,Urdu Book-6,S.T.B.B,6,108,190.00,Book
+73,History and Geography-6 (M.Zubair Waine),Gohar,6,51,640.00,Book
+74,Sindhi Book-5,S.T.B.B,6,31,108.00,Book
+75,New Modern English Book 7 (3rd Edition),Oxford Pub,7,9,1050.00,Book
+76,"Computer Today-7 ",Gaba Sons,7,24,720.00,Book
+77,Islamite book 7,Gaba Sons,7,29,330.00,Book
+78,Skylark Gramer Book 7,Gohar Pub,7,24,910.00,Book
+79,S.S Drawing book 7,S.S Publisher,7,52,180.00,Book
+80,Mathematics Book-7 (English Medium),S.T.B.B,7,42,450.00,Book
+81,Esay Science Book 7,Oxford Pub,7,30,460.00,Book
+82,Urdu Book-7,S.T.B.B,7,33,230.00,Book
+83,History and Geography -7 (M.Zubair Waine),Gohar,7,31,640.00,Book
+84,Sindhi Book-7,S.T.B.B,7,22,120.00,Book
+85,New Modern English Book 8 (3rd Edition),Oxford Pub,8,11,1050.00,Book
+86,Computer Today-8,Gaba Sons,8,29,780.00,Book
+87,Islamite book 8,Gaba Sons,8,33,310.00,Book
+88,Skylark Gramer Book 8,Gohar Pub,8,18,960.00,Book
+89,S.S Drawing book 8,S.S Publisher,8,55,180.00,Book
+90,Mathematics Book-8 (English Medium),S.T.B.B,8,33,450.00,Book
+91,Esay Science Book 8,Oxford Pub,8,34,460.00,Book
+92,History and Geography -8 (M.Zubair Waine),Gohar,8,33,640.00,Book
+93,Sindhi Book-8,S.T.B.B,8,46,120.00,Book
+94,Urdu Book-8,S.T.B.B,8,122,190.00,Book
+96,Islamite IX,S.T.B.B,9,53,265.00,Book
+97,Urdu IX,S.T.B.B,9,42,283.00,Book
+98,Mathematics IX,S.T.B.B,9,28,510.00,Book
+99,Physics IX,S.T.B.B,9,7,375.00,Book
+100,Computer IX,S.T.B.B,9,6,290.00,Book
+101,Chemistry IX,S.T.B.B,9,26,320.00,Book
+102,Biology IX,S.T.B.B,9,12,350.00,Book
+103,English IX,S.T.B.B,9,22,381.00,Book
+104,Pakistan Studies X,S.T.B.B,10,28,325.00,Book
+105,Sindhi X,S.T.B.B,10,24,120.00,Book
+106,Mathematics X,S.T.B.B,10,0,520.00,Book
+107,Physics X,S.T.B.B,10,52,405.00,Book
+108,Computer X,S.T.B.B,10,0,265.00,Book
+109,Chemistry X,S.T.B.B,10,49,246.00,Book
+110,Biology X,S.T.B.B,10,0,340.00,Book
+111,English X,S.T.B.B,10,0,325.00,Book
+119,H.W Diary,Al-Sehar Academy,8,781,100.00,Copy
+142,Register,Al-Sehar Academy,10,2138,220.00,Copy
+153,Simple Drawing,Al-Sehar Academy,5,401,100.00,Copy
+165,web_test_1_English,Oxford,Testing,35,1200.00,Book
+166,web_test_2_Math,Cambridge,Testing,9,1500.00,Book
+167,web_test_3_Notebook,Local,Testing,20,150.00,Copy
+168,web_test_4_Drawing_Pad,ArtCo,Testing,30,300.00,Copy
+300,Urdu Copy,Al-Sehar Academy,1,2050,150.00,Copy
+301,English Copy,Al-Sehar Academy,1,713,150.00,Copy
+303,Math Copy,Al-Sehar Academy,1,594,150.00,Copy
+304,Science(English) Copy,Al-Sehar Academy,1,505,150.00,Copy
+305,Nursery Urdu Copy,Al-Sehar Academy,Nursery,188,150.00,Copy
+306,Nursery English Copy,Al-Sehar Academy,Nursery,261,150.00,Copy
+307,Science(Urdu) Copy,Al-Sehar Academy,6,647,150.00,Copy
+308,Urdu Test Copy,Al-Sehar Academy,1,330,100.00,Copy
+309,English Test Copy,Al-Sehar Academy,1,330,100.00,Copy
